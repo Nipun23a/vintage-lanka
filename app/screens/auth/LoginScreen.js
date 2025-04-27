@@ -1,136 +1,86 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView, SafeAreaView } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons'; // Using Expo Vector Icons
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
+import AuthLayout from "../../layout/AuthLayout";
+ // Import the AuthLayout component
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
     return (
-        <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
-                {/* Header Image */}
-                <View style={styles.imageContainer}>
-                    <Image
-                        source={{ uri: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' }}
-                        style={styles.headerImage}
-                        resizeMode="cover"
-                    />
-                    <View style={styles.darkOverlay} />
-                </View>
+        <AuthLayout
+            title="Sign In To Your Account"
+            subtitle="Sign in to explore great deals on second-hand treasures!"
+        >
+            {/* Email Input */}
+            <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Enter your email"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                />
+            </View>
 
-                {/* Sign In Section */}
-                <View style={styles.formContainer}>
-                    <Text style={styles.title}>Sign In To Your Account</Text>
-                    <Text style={styles.subtitle}>Sign in to explore great deals on second-hand treasures!</Text>
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
+                <Text style={styles.label}>Password <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Enter your password"
+                    secureTextEntry
+                />
+                <TouchableOpacity
+                    style={styles.forgotPasswordContainer}
+                    onPress={() => navigation.navigate('ForgotPassword')}
+                >
+                    <Text style={styles.forgotPassword}>Forgot Password?</Text>
+                </TouchableOpacity>
+            </View>
 
-                    {/* Email Input */}
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
-                        <TextInput
-                            style={styles.input}
-                            value={email}
-                            onChangeText={setEmail}
-                            placeholder="Enter your email"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-                    </View>
+            {/* Sign In Button */}
+            <TouchableOpacity style={styles.signInButton}>
+                <Text style={styles.signInButtonText}>Sign In</Text>
+            </TouchableOpacity>
 
-                    {/* Password Input */}
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Password <Text style={styles.required}>*</Text></Text>
-                        <TextInput
-                            style={styles.input}
-                            value={password}
-                            onChangeText={setPassword}
-                            placeholder="Enter your password"
-                            secureTextEntry
-                        />
-                        <TouchableOpacity style={styles.forgotPasswordContainer}>
-                            <Text style={styles.forgotPassword}>Forgot Password?</Text>
-                        </TouchableOpacity>
-                    </View>
+            {/* Or continue with */}
+            <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>Or Continue With</Text>
+                <View style={styles.divider} />
+            </View>
 
-                    {/* Sign In Button */}
-                    <TouchableOpacity style={styles.signInButton}>
-                        <Text style={styles.signInButtonText}>Sign In</Text>
-                    </TouchableOpacity>
+            {/* Social Login Options */}
+            <View style={styles.socialContainer}>
+                <TouchableOpacity style={styles.socialButton}>
+                    <FontAwesome name="google" size={24} color="#DB4437" />
+                    <Text style={styles.socialButtonText}>Sign Up With Google</Text>
+                </TouchableOpacity>
 
-                    {/* Or continue with */}
-                    <View style={styles.dividerContainer}>
-                        <View style={styles.divider} />
-                        <Text style={styles.dividerText}>Or Continue With</Text>
-                        <View style={styles.divider} />
-                    </View>
+                <TouchableOpacity style={styles.socialButton}>
+                    <FontAwesome name="apple" size={24} color="#000" />
+                    <Text style={styles.socialButtonText}>Sign Up With Apple</Text>
+                </TouchableOpacity>
+            </View>
 
-                    {/* Social Login Options */}
-                    <View style={styles.socialContainer}>
-                        <TouchableOpacity style={styles.socialButton}>
-                            <FontAwesome name="google" size={24} color="#DB4437" />
-                            <Text style={styles.socialButtonText}>Sign Up With Google</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.socialButton}>
-                            <FontAwesome name="apple" size={24} color="#000" />
-                            <Text style={styles.socialButtonText}>Sign Up With Apple</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Create Account */}
-                    <View style={styles.createAccountContainer}>
-                        <Text style={styles.notMemberText}>Not a Member? </Text>
-                        <TouchableOpacity>
-                            <Text style={styles.createAccountText}>Create an Account</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+            {/* Create Account */}
+            <View style={styles.createAccountContainer}>
+                <Text style={styles.notMemberText}>Not a Member? </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('UserType')}>
+                    <Text style={styles.createAccountText}>Create an Account</Text>
+                </TouchableOpacity>
+            </View>
+        </AuthLayout>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    scrollContainer: {
-        flexGrow: 1,
-    },
-    imageContainer: {
-        height: 200,
-        overflow: 'hidden',
-        position: 'relative',
-        borderBottomRightRadius: 160, // Rounded bottom right corner
-    },
-    headerImage: {
-        width: '100%',
-        height: '100%',
-        borderBottomRightRadius: 160, // Match the container's border radius
-    },
-    darkOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)', // Dark overlay with 40% opacity
-        borderBottomRightRadius: 160, // Match the container's border radius
-    },
-    formContainer: {
-        padding: 20,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#666',
-        marginBottom: 24,
-    },
     inputContainer: {
         marginBottom: 16,
     },
@@ -191,12 +141,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#fff', // Changed to white background
+        backgroundColor: '#fff',
         height: 50,
         borderRadius: 4,
         gap: 12,
-        borderWidth: 1, // Added border
-        borderColor: '#ddd', // Light gray border color
+        borderWidth: 1,
+        borderColor: '#ddd',
     },
     socialButtonText: {
         fontSize: 16,

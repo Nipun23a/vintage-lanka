@@ -1,20 +1,92 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
+import AuthLayout from "../../layout/AuthLayout";
 
-export default function UserTypeScreen() {
+
+export default function UserTypeScreen({ navigation }) {
     return (
-        <View style={styles.container}>
-            <Text>This is login screen</Text>
-            <StatusBar style="auto" />
-        </View>
+        <AuthLayout
+            title="Select User Type"
+            subtitle="Please select your account type to continue"
+        >
+            <View style={styles.optionsContainer}>
+                <TouchableOpacity
+                    style={styles.optionButton}
+                    onPress={() => navigation.navigate('Register', { userType: 'buyer' })}
+                >
+                    <View style={styles.iconContainer}>
+                        <FontAwesome5 name="shopping-bag" size={28} color="#000" />
+                    </View>
+                    <Text style={styles.optionTitle}>I'm a Buyer</Text>
+                    <Text style={styles.optionDescription}>Looking to browse and purchase items</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.optionButton}
+                    onPress={() => navigation.navigate('Register', { userType: 'seller' })}
+                >
+                    <View style={styles.iconContainer}>
+                        <FontAwesome5 name="store" size={28} color="#000" />
+                    </View>
+                    <Text style={styles.optionTitle}>I'm a Seller</Text>
+                    <Text style={styles.optionDescription}>Looking to list items and manage sales</Text>
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.loginContainer}>
+                <Text style={styles.alreadyUserText}>Already have an account? </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                    <Text style={styles.loginText}>Login</Text>
+                </TouchableOpacity>
+            </View>
+        </AuthLayout>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
+    optionsContainer: {
+        marginTop: 20,
+        gap: 20,
+    },
+    optionButton: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        padding: 20,
         alignItems: 'center',
+    },
+    iconContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#f5f5f5',
         justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    optionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    optionDescription: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+    },
+    loginContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 24,
+    },
+    alreadyUserText: {
+        fontSize: 16,
+        color: '#666',
+    },
+    loginText: {
+        fontSize: 16,
+        color: 'red',
+        fontWeight: '500',
     },
 });
