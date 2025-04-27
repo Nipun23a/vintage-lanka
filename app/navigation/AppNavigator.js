@@ -30,6 +30,7 @@ import SellerReceivePaymentScreen from "../screens/seller/SellerReceivePaymentSc
 import SellerPaymentsScreen from "../screens/seller/SellerPaymentsScreen";
 import SellerAddProductScreen from "../screens/seller/SellerAddProductScreen";
 import SellerProfileScreen from "../screens/seller/SellerProfileScreen";
+import TransactionHistoryScreen from "../screens/buyer/TransactionHistoryScreen";
 
 // Create the navigation stacks
 const Stack = createStackNavigator();
@@ -97,6 +98,7 @@ const BuyerNavigator = () => {
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
             <Stack.Screen name="Cart" component={CartScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
+            <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen}/>
             <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
         </Stack.Navigator>
     );

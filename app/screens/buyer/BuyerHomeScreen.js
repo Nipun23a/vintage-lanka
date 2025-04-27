@@ -2,9 +2,11 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
 import { useFonts } from 'expo-font';
+import {useNavigation} from "@react-navigation/native";
 
 
 const Header = () => {
+    const navigation = useNavigation();
     return(
         <View style={styles.header}>
             <View style={styles.headerContent}>
@@ -12,7 +14,7 @@ const Header = () => {
                     <Text style={styles.headerGreeting}>Hello,</Text>
                     <Text style={styles.headerTitle}>Welcome Back! <Text>👋</Text></Text>
                 </View>
-                <TouchableOpacity style={styles.cartButton}>
+                <TouchableOpacity style={styles.cartButton} onPress={() => navigation.navigate('Cart')}>
                     <FontAwesome name="shopping-cart" size={24} color="black"/>
                 </TouchableOpacity>
             </View>
@@ -93,37 +95,7 @@ const SectionTitle = ({ title }) => {
     );
 };
 
-// Category Selector Component
-const CategorySelector = () => {
-    const categories = ['All', 'Cloth', 'Electronic', 'Home', 'Decor', 'Books'];
 
-    return (
-        <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.categorySelectorContainer}
-        >
-            {categories.map((category, index) => (
-                <TouchableOpacity
-                    key={index}
-                    style={[
-                        styles.categoryButton,
-                        index === 0 ? styles.categoryButtonActive : null
-                    ]}
-                >
-                    <Text
-                        style={[
-                            styles.categoryButtonText,
-                            index === 0 ? styles.categoryButtonTextActive : null
-                        ]}
-                    >
-                        {category}
-                    </Text>
-                </TouchableOpacity>
-            ))}
-        </ScrollView>
-    );
-};
 
 // Product Item Component
 const ProductItem = ({ imageUri }) => {
@@ -170,7 +142,6 @@ export default function BuyerHomeScreen() {
                 <CategoryBanners />
 
                 <SectionTitle title="New Arrival" />
-                <CategorySelector />
                 <ProductGrid />
 
                 <SectionTitle title="Featured Items" />
