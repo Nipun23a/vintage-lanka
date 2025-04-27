@@ -8,6 +8,7 @@ import {useFonts} from "expo-font";
 export default function App() {
     const [loaded,error] = useFonts({
         Montaga:require('./assets/fonts/Montaga/Montaga-Regular.ttf'),
+        Alatsi: require('./assets/fonts/Alatsi/Alatsi-Regular.ttf'),
         Montserrat_Bold:require('./assets/fonts/Montserrat/Montserrat-Bold.ttf'),
         Montserrat_Light:require('./assets/fonts/Montserrat/Montserrat-Light.ttf'),
         Montserrat_Regular:require('./assets/fonts/Montserrat/Montserrat-Regular.ttf'),

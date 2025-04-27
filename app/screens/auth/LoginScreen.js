@@ -4,15 +4,52 @@ import { FontAwesome } from '@expo/vector-icons';
 import AuthLayout from "../../layout/AuthLayout";
  // Import the AuthLayout component
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, onLogin }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+
+    // Hardcoded credentials
+    const buyerCredentials = { email: 'buyer@example.com', password: 'buyer123' };
+    const sellerCredentials = { email: 'seller@example.com', password: 'seller123' };
+
+    const handleLogin = () => {
+        // Reset error message
+        setErrorMessage('');
+
+        if (email.trim() === '' || password.trim() === '') {
+            setErrorMessage('Please enter both email and password');
+            return;
+        }
+
+        // Check if credentials match buyer
+        if (email === buyerCredentials.email && password === buyerCredentials.password) {
+            // Use the onLogin function from props to update auth state
+            onLogin('buyer');
+            return;
+        }
+
+        // Check if credentials match seller
+        if (email === sellerCredentials.email && password === sellerCredentials.password) {
+            // Use the onLogin function from props to update auth state
+            onLogin('seller');
+            return;
+        }
+
+        // If no match found
+        setErrorMessage('Invalid email or password');
+    };
 
     return (
         <AuthLayout
             title="Sign In To Your Account"
             subtitle="Sign in to explore great deals on second-hand treasures!"
         >
+            {/* Error Message */}
+            {errorMessage ? (
+                <Text style={styles.errorMessage}>{errorMessage}</Text>
+            ) : null}
+
             {/* Email Input */}
             <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
@@ -45,9 +82,16 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             {/* Sign In Button */}
-            <TouchableOpacity style={styles.signInButton}>
+            <TouchableOpacity style={styles.signInButton} onPress={handleLogin}>
                 <Text style={styles.signInButtonText}>Sign In</Text>
             </TouchableOpacity>
+
+            {/* Demo Account Info */}
+            <View style={styles.demoAccountsContainer}>
+                <Text style={styles.demoAccountsTitle}>Demo Accounts:</Text>
+                <Text style={styles.demoAccountText}>Buyer: buyer@example.com / buyer123</Text>
+                <Text style={styles.demoAccountText}>Seller: seller@example.com / seller123</Text>
+            </View>
 
             {/* Or continue with */}
             <View style={styles.dividerContainer}>
@@ -60,12 +104,12 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.socialContainer}>
                 <TouchableOpacity style={styles.socialButton}>
                     <FontAwesome name="google" size={24} color="#DB4437" />
-                    <Text style={styles.socialButtonText}>Sign Up With Google</Text>
+                    <Text style={styles.socialButtonText}>Sign In With Google</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.socialButton}>
                     <FontAwesome name="apple" size={24} color="#000" />
-                    <Text style={styles.socialButtonText}>Sign Up With Apple</Text>
+                    <Text style={styles.socialButtonText}>Sign In With Apple</Text>
                 </TouchableOpacity>
             </View>
 
@@ -79,6 +123,7 @@ export default function LoginScreen({ navigation }) {
         </AuthLayout>
     );
 }
+
 
 const styles = StyleSheet.create({
     inputContainer: {
@@ -173,5 +218,28 @@ const styles = StyleSheet.create({
         color: 'red',
         fontWeight: '500',
         fontFamily: 'Montserrat_SemiBold'
+    },
+    errorMessage: {
+        color: '#FF0000',
+        textAlign: 'center',
+        marginBottom: 15,
+        fontSize: 16,
+    },
+    demoAccountsContainer: {
+        backgroundColor: '#f5f7fa',
+        padding: 12,
+        borderRadius: 8,
+        marginVertical: 10,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+    },
+    demoAccountsTitle: {
+        fontWeight: '600',
+        marginBottom: 5,
+        color: '#333',
+    },
+    demoAccountText: {
+        color: '#666',
+        fontSize: 14,
     },
 });

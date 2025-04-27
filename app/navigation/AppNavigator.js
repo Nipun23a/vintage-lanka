@@ -1,25 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-// Import the StartScreen we created earlier
-
-
-
-
-
-
-
-// Seller Screens
 // Auth Screens
 import UserTypeScreen from "../screens/auth/UserTypeScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
-
 import StartScreen from "../screens/StartScreen";
+
 // Buyer Screens
 import BuyerHomeScreen from "../screens/buyer/BuyerHomeScreen";
 import BuyerSearchScreen from "../screens/buyer/BuyerSearchScreen";
@@ -29,6 +20,12 @@ import ProductDetailScreen from "../screens/buyer/ProductDetailScreen";
 import CartScreen from "../screens/buyer/CartScreen";
 import CheckoutScreen from "../screens/buyer/CheckoutScreen";
 import OrderHistoryScreen from "../screens/buyer/OrderHistoryScreen";
+
+// Seller Screens
+import SellerHomeScreen from "../screens/seller/SellerHomeScreen";
+import SellerProductsScreen from "../screens/seller/SellerProductsScreen";
+import SellerOrdersScreen from "../screens/seller/SellerOrderScreen";
+import SellerWalletScreen from "../screens/seller/SellerWalletScreen";
 import SellerReceivePaymentScreen from "../screens/seller/SellerReceivePaymentScreen";
 import SellerPaymentsScreen from "../screens/seller/SellerPaymentsScreen";
 import SellerAddProductScreen from "../screens/seller/SellerAddProductScreen";
@@ -60,6 +57,7 @@ const BuyerTabNavigator = () => {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
+                headerShown:false,
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName;
 
@@ -109,6 +107,7 @@ const SellerTabNavigator = () => {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
+                headerShown: false,
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName;
 
@@ -153,18 +152,40 @@ const SellerNavigator = () => {
     );
 };
 
-// Main App Navigator to determine which navigator to show based on auth state and user type
+// Main App Navigator with authentication state
 const AppNavigator = () => {
-    // You would add state management here to determine if user is logged in
-    // and whether they are a buyer or seller
-    const isLoggedIn = false; // Replace with your auth state
-    const userType = null; // Replace with your user type state ('buyer' or 'seller')
+    // Use state to manage authentication
+    const [authState, setAuthState] = useState({
+        isLoggedIn: false,
+        userType: null // 'buyer' or 'seller'
+    });
+
+    // Create a context or function to update auth state
+    const login = (userType) => {
+        setAuthState({
+            isLoggedIn: true,
+            userType: userType
+        });
+    };
+
+    // Provide the login function to the auth screens
+    const AuthStackWithContext = () => (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Start" component={StartScreen} />
+            <Stack.Screen name="UserType" component={UserTypeScreen} />
+            <Stack.Screen name="Login">
+                {props => <LoginScreen {...props} onLogin={login} />}
+            </Stack.Screen>
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        </Stack.Navigator>
+    );
 
     return (
         <NavigationContainer>
-            {!isLoggedIn ? (
-                <AuthNavigator />
-            ) : userType === 'seller' ? (
+            {!authState.isLoggedIn ? (
+                <AuthStackWithContext />
+            ) : authState.userType === 'seller' ? (
                 <SellerNavigator />
             ) : (
                 <BuyerNavigator />
