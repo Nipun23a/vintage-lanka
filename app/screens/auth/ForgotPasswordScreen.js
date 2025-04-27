@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 16,
         marginBottom: 8,
+        fontFamily:'Montserrat_Regular'
     },
     required: {
         color: 'red',
@@ -57,6 +58,7 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         paddingHorizontal: 12,
         backgroundColor: '#fff',
+        fontFamily:'Montserrat_Light'
     },
     resetButton: {
         backgroundColor: '#000',
@@ -70,6 +72,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+        fontFamily:"Montserrat_SemiBold"
     },
     backToLoginContainer: {
         flexDirection: 'row',
@@ -78,11 +81,13 @@ const styles = StyleSheet.create({
     },
     rememberText: {
         fontSize: 16,
+        fontFamily:"Montserrat_SemiBold",
         color: '#666',
     },
     backToLoginText: {
         fontSize: 16,
         color: 'red',
         fontWeight: '500',
+        fontFamily:"Montserrat_SemiBold",
     },
 });

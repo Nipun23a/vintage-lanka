@@ -67,13 +67,14 @@ const styles = StyleSheet.create({
     },
     optionTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily:'Montserrat_Bold',
         marginBottom: 8,
     },
     optionDescription: {
         fontSize: 14,
         color: '#666',
         textAlign: 'center',
+        fontFamily: 'Montserrat_Regular'
     },
     loginContainer: {
         flexDirection: 'row',
@@ -83,10 +84,12 @@ const styles = StyleSheet.create({
     alreadyUserText: {
         fontSize: 16,
         color: '#666',
+        fontFamily:'Montserrat_SemiBold'
     },
     loginText: {
         fontSize: 16,
         color: 'red',
         fontWeight: '500',
+        fontFamily:'Montserrat_SemiBold'
     },
 });

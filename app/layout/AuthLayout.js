@@ -58,13 +58,15 @@ const styles = StyleSheet.create({
     },
     formContainer: {
         padding: 20,
+        fontFamily:"Montserrat_Regular",
     },
     title: {
+        fontFamily:"Montserrat_Bold",
         fontSize: 24,
-        fontWeight: 'bold',
         marginBottom: 8,
     },
     subtitle: {
+        fontFamily:"Montserrat_SemiBold",
         fontSize: 16,
         color: '#666',
         marginBottom: 24,

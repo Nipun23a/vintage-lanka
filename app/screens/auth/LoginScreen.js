@@ -83,10 +83,12 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
     inputContainer: {
         marginBottom: 16,
+
     },
     label: {
         fontSize: 16,
         marginBottom: 8,
+        fontFamily:'Montserrat_Regular'
     },
     required: {
         color: 'red',
@@ -98,6 +100,7 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         paddingHorizontal: 12,
         backgroundColor: '#fff',
+        fontFamily:'Montserrat_Light'
     },
     forgotPasswordContainer: {
         alignItems: 'flex-end',
@@ -106,6 +109,7 @@ const styles = StyleSheet.create({
     forgotPassword: {
         color: '#000',
         fontWeight: '500',
+        fontFamily:'Montserrat_SemiBold'
     },
     signInButton: {
         backgroundColor: '#000',
@@ -119,6 +123,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+        fontFamily:'Montserrat_SemiBold'
     },
     dividerContainer: {
         flexDirection: 'row',
@@ -133,6 +138,7 @@ const styles = StyleSheet.create({
     dividerText: {
         paddingHorizontal: 16,
         color: '#666',
+        fontFamily:'Montserrat_SemiBold'
     },
     socialContainer: {
         gap: 16,
@@ -150,6 +156,7 @@ const styles = StyleSheet.create({
     },
     socialButtonText: {
         fontSize: 16,
+        fontFamily: 'Montserrat_Regular'
     },
     createAccountContainer: {
         flexDirection: 'row',
@@ -159,10 +166,12 @@ const styles = StyleSheet.create({
     notMemberText: {
         fontSize: 16,
         color: '#666',
+        fontFamily:'Montserrat_SemiBold'
     },
     createAccountText: {
         fontSize: 16,
         color: 'red',
         fontWeight: '500',
+        fontFamily: 'Montserrat_SemiBold'
     },
 });
