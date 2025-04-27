@@ -121,6 +121,8 @@ const SellerTabNavigator = () => {
                         iconName = focused ? 'basket' : 'basket-outline';
                     } else if (route.name === 'Wallet') {
                         iconName = focused ? 'wallet' : 'wallet-outline';
+                    } else if (route.name === 'Profile'){
+                        iconName = focused? 'profile' : 'person-outline';
                     }
 
                     return <Ionicons name={iconName} size={size} color={color} />;
@@ -133,6 +135,7 @@ const SellerTabNavigator = () => {
             <Tab.Screen name="Products" component={SellerProductsScreen} />
             <Tab.Screen name="Orders" component={SellerOrdersScreen} />
             <Tab.Screen name="Wallet" component={SellerWalletScreen} />
+            <Tab.Screen name="Profile" component={SellerProfileScreen}/>
         </Tab.Navigator>
     );
 };
