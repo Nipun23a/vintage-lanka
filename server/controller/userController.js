@@ -4,14 +4,21 @@ const bcrypt = require('bcryptjs');
 // Register a new user
 exports.registerUser = async (req, res) => {
     try {
-        const { fullname, phoneNumber, password, role, addresses } = req.body;
+        const { fullname, email, phoneNumber, password, role, addresses } = req.body;
 
-        const existingUser = await User.findOne({ phoneNumber });
-        if (existingUser) {
+        // Check if email already exists
+        const existingEmail = await User.findOne({ email });
+        if (existingEmail) {
+            return res.status(400).json({ message: 'Email already registered.' });
+        }
+
+        // Check if phone number already exists
+        const existingPhone = await User.findOne({ phoneNumber });
+        if (existingPhone) {
             return res.status(400).json({ message: 'Phone number already registered.' });
         }
 
-        const newUser = new User({ fullname, phoneNumber, password, role, addresses });
+        const newUser = new User({ fullname, email, phoneNumber, password, role, addresses });
         await newUser.save();
 
         res.status(201).json({ message: 'User registered successfully', userId: newUser._id });
@@ -20,12 +27,13 @@ exports.registerUser = async (req, res) => {
     }
 };
 
+
 // Login user
 exports.loginUser = async (req, res) => {
     try {
-        const { phoneNumber, password } = req.body;
+        const { email, password } = req.body;
 
-        const user = await User.findOne({ phoneNumber });
+        const user = await User.findOne({ email });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -58,11 +66,11 @@ exports.getUserById = async (req, res) => {
 // Update user
 exports.updateUser = async (req, res) => {
     try {
-        const { fullname, phoneNumber, role, addresses } = req.body;
+        const { fullname,email, phoneNumber, role, addresses } = req.body;
 
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            { fullname, phoneNumber, role, addresses },
+            { fullname,email, phoneNumber, role, addresses },
             { new: true, runValidators: true }
         ).select('-password');
 
