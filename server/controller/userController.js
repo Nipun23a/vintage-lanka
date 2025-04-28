@@ -42,9 +42,7 @@ exports.loginUser = async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
-
-        // Ideally, you would generate a JWT token here
-        res.status(200).json({ message: 'Login successful', userId: user._id });
+        res.status(200).json({ message: 'Login successful', user });
     } catch (error) {
         res.status(500).json({ message: 'Error logging in', error: error.message });
     }

@@ -1,13 +1,15 @@
 const Product = require('../models/ProductModel');
 const Category = require('../models/CategoryModel');
 const User = require('../models/UserModel');
+const {bucket} = require('../config/firebase');
+const { v4: uuidv4 } = require('uuid');
 
 // Create a new product
 exports.createProduct = async (req, res) => {
     try {
-        const { title, description, category, quantity, price, discountPrice, images, mainImage, seller } = req.body;
+        const { title, description, category, quantity, price, discountPrice, seller } = req.body;
+        const images = req.files; // multer files
 
-        // Optional: check if category and seller exist
         const existingCategory = await Category.findById(category);
         if (!existingCategory) {
             return res.status(400).json({ message: 'Invalid category ID.' });
@@ -18,6 +20,27 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({ message: 'Invalid seller ID.' });
         }
 
+        const uploadedImageUrls = [];
+
+        for (const image of images) {
+            const blob = bucket.file(`products/${uuidv4()}-${image.originalname}`);
+            const blobStream = blob.createWriteStream({
+                metadata: {
+                    contentType: image.mimetype
+                }
+            });
+
+            await new Promise((resolve, reject) => {
+                blobStream.on('error', reject);
+                blobStream.on('finish', async () => {
+                    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+                    uploadedImageUrls.push(publicUrl);
+                    resolve();
+                });
+                blobStream.end(image.buffer);
+            });
+        }
+
         const newProduct = new Product({
             title,
             description,
@@ -25,14 +48,14 @@ exports.createProduct = async (req, res) => {
             quantity,
             price,
             discountPrice,
-            images,
-            mainImage,
+            images: uploadedImageUrls,
             seller,
         });
 
         await newProduct.save();
         res.status(201).json({ message: 'Product created successfully', productId: newProduct._id });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Error creating product', error: error.message });
     }
 };

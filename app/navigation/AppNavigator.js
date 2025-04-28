@@ -152,7 +152,6 @@ const SellerNavigator = () => {
             <Stack.Screen name="AddProduct" component={SellerAddProductScreen} />
             <Stack.Screen name="Payments" component={SellerPaymentsScreen} />
             <Stack.Screen name="ReceivePayment" component={SellerReceivePaymentScreen} />
-            <Stack.Screen name="Profile" component={SellerProfileScreen} />
         </Stack.Navigator>
     );
 };
