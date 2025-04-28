@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Auth Screens
 import UserTypeScreen from "../screens/auth/UserTypeScreen";
@@ -20,6 +21,7 @@ import ProductDetailScreen from "../screens/buyer/ProductDetailScreen";
 import CartScreen from "../screens/buyer/CartScreen";
 import CheckoutScreen from "../screens/buyer/CheckoutScreen";
 import OrderHistoryScreen from "../screens/buyer/OrderHistoryScreen";
+import TransactionHistoryScreen from "../screens/buyer/TransactionHistoryScreen";
 
 // Seller Screens
 import SellerHomeScreen from "../screens/seller/SellerHomeScreen";
@@ -30,14 +32,13 @@ import SellerReceivePaymentScreen from "../screens/seller/SellerReceivePaymentSc
 import SellerPaymentsScreen from "../screens/seller/SellerPaymentsScreen";
 import SellerAddProductScreen from "../screens/seller/SellerAddProductScreen";
 import SellerProfileScreen from "../screens/seller/SellerProfileScreen";
-import TransactionHistoryScreen from "../screens/buyer/TransactionHistoryScreen";
 
 // Create the navigation stacks
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // Auth Navigator
-const AuthNavigator = () => {
+const AuthNavigator = ({ onLogin }) => {
     return (
         <Stack.Navigator
             screenOptions={{
@@ -46,7 +47,9 @@ const AuthNavigator = () => {
         >
             <Stack.Screen name="Start" component={StartScreen} />
             <Stack.Screen name="UserType" component={UserTypeScreen} />
-            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Login">
+                {props => <LoginScreen {...props} onLogin={onLogin} />}
+            </Stack.Screen>
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </Stack.Navigator>
@@ -54,11 +57,11 @@ const AuthNavigator = () => {
 };
 
 // Buyer Tab Navigator
-const BuyerTabNavigator = () => {
+const BuyerTabNavigator = ({ onLogout }) => {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
-                headerShown:false,
+                headerShown: false,
                 tabBarIcon: ({ focused, color, size }) => {
                     let iconName;
 
@@ -81,31 +84,35 @@ const BuyerTabNavigator = () => {
             <Tab.Screen name="Home" component={BuyerHomeScreen} />
             <Tab.Screen name="Search" component={BuyerSearchScreen} />
             <Tab.Screen name="Favorites" component={BuyerFavoritesScreen} />
-            <Tab.Screen name="Profile" component={BuyerProfileScreen} />
+            <Tab.Screen name="Profile">
+                {props => <BuyerProfileScreen {...props} onLogout={onLogout} />}
+            </Tab.Screen>
         </Tab.Navigator>
     );
 };
 
 // Buyer Main Navigator (includes the tab navigator and other screens)
-const BuyerNavigator = () => {
+const BuyerNavigator = ({ onLogout }) => {
     return (
         <Stack.Navigator
             screenOptions={{
                 headerShown: false
             }}
         >
-            <Stack.Screen name="BuyerTabs" component={BuyerTabNavigator} />
+            <Stack.Screen name="BuyerTabs">
+                {props => <BuyerTabNavigator {...props} onLogout={onLogout} />}
+            </Stack.Screen>
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
             <Stack.Screen name="Cart" component={CartScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
-            <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen}/>
+            <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
             <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
         </Stack.Navigator>
     );
 };
 
 // Seller Tab Navigator
-const SellerTabNavigator = () => {
+const SellerTabNavigator = ({ onLogout }) => {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -121,8 +128,8 @@ const SellerTabNavigator = () => {
                         iconName = focused ? 'basket' : 'basket-outline';
                     } else if (route.name === 'Wallet') {
                         iconName = focused ? 'wallet' : 'wallet-outline';
-                    } else if (route.name === 'Profile'){
-                        iconName = focused? 'profile' : 'person-outline';
+                    } else if (route.name === 'Profile') {
+                        iconName = focused ? 'person' : 'person-outline';
                     }
 
                     return <Ionicons name={iconName} size={size} color={color} />;
@@ -135,20 +142,24 @@ const SellerTabNavigator = () => {
             <Tab.Screen name="Products" component={SellerProductsScreen} />
             <Tab.Screen name="Orders" component={SellerOrdersScreen} />
             <Tab.Screen name="Wallet" component={SellerWalletScreen} />
-            <Tab.Screen name="Profile" component={SellerProfileScreen}/>
+            <Tab.Screen name="Profile">
+                {props => <SellerProfileScreen {...props} onLogout={onLogout} />}
+            </Tab.Screen>
         </Tab.Navigator>
     );
 };
 
 // Seller Main Navigator (includes the tab navigator and other screens)
-const SellerNavigator = () => {
+const SellerNavigator = ({ onLogout }) => {
     return (
         <Stack.Navigator
             screenOptions={{
                 headerShown: false
             }}
         >
-            <Stack.Screen name="SellerTabs" component={SellerTabNavigator} />
+            <Stack.Screen name="SellerTabs">
+                {props => <SellerTabNavigator {...props} onLogout={onLogout} />}
+            </Stack.Screen>
             <Stack.Screen name="AddProduct" component={SellerAddProductScreen} />
             <Stack.Screen name="Payments" component={SellerPaymentsScreen} />
             <Stack.Screen name="ReceivePayment" component={SellerReceivePaymentScreen} />
@@ -161,38 +172,93 @@ const AppNavigator = () => {
     // Use state to manage authentication
     const [authState, setAuthState] = useState({
         isLoggedIn: false,
-        userType: null // 'buyer' or 'seller'
+        userType: null, // 'buyer' or 'seller'
+        isLoading: true // Add loading state for initial AsyncStorage check
     });
 
-    // Create a context or function to update auth state
+    // Check for existing login credentials on app start
+    useEffect(() => {
+        const checkLoginState = async () => {
+            try {
+                const userRole = await AsyncStorage.getItem('userRole');
+                const userId = await AsyncStorage.getItem('userId');
+
+                if (userId && userRole) {
+                    setAuthState({
+                        isLoggedIn: true,
+                        userType: userRole,
+                        isLoading: false
+                    });
+                } else {
+                    setAuthState({
+                        isLoggedIn: false,
+                        userType: null,
+                        isLoading: false
+                    });
+                }
+            } catch (error) {
+                console.log('Error checking login state:', error);
+                setAuthState({
+                    isLoggedIn: false,
+                    userType: null,
+                    isLoading: false
+                });
+            }
+        };
+
+        checkLoginState();
+    }, []);
+
+    // Login function
     const login = (userType) => {
         setAuthState({
             isLoggedIn: true,
-            userType: userType
+            userType: userType,
+            isLoading: false
         });
     };
 
-    // Provide the login function to the auth screens
-    const AuthStackWithContext = () => (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Start" component={StartScreen} />
-            <Stack.Screen name="UserType" component={UserTypeScreen} />
-            <Stack.Screen name="Login">
-                {props => <LoginScreen {...props} onLogin={login} />}
-            </Stack.Screen>
-            <Stack.Screen name="Register" component={RegisterScreen} />
-            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-        </Stack.Navigator>
-    );
+    // Logout function
+    const logout = async () => {
+        try {
+            // Clear all authentication-related data from AsyncStorage
+            await AsyncStorage.multiRemove([
+                'userId',
+                'userRole',
+                'userFullName',
+                'userEmail',
+                'userPhoneNumber',
+                'userAddresses',
+                'userCart'
+            ]);
+
+            // Reset the authentication state
+            setAuthState({
+                isLoggedIn: false,
+                userType: null,
+                isLoading: false
+            });
+
+        } catch (error) {
+            console.log('Logout Failed', error);
+            // Handle error if needed
+        }
+    };
+
+    // Show loading screen if still checking authentication state
+    if (authState.isLoading) {
+        // You could return a loading component here
+        return null;
+    }
 
     return (
         <NavigationContainer>
             {!authState.isLoggedIn ? (
-                <AuthStackWithContext />
+                <AuthNavigator onLogin={login} />
             ) : authState.userType === 'seller' ? (
-                <SellerNavigator />
+                <SellerNavigator onLogout={logout} />
             ) : (
-                <BuyerNavigator />
+                <BuyerNavigator onLogout={logout} />
             )}
         </NavigationContainer>
     );

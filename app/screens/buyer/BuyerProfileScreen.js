@@ -1,11 +1,24 @@
 import { StatusBar } from 'expo-status-bar';
-import {SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, Image, View, Alert} from 'react-native';
+import {
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    Image,
+    View,
+    Alert,
+    ActivityIndicator
+} from 'react-native';
 import {FontAwesome} from "@expo/vector-icons";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import Header from "../../components/Header";
 import {useNavigation} from "@react-navigation/native";
 import PasswordUpdateModal from "../../components/PasswordUpdateModal";
 import PersonalInfoUpdateModal from "../../components/PersonalInfoUpdateModal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {useUser} from "../../config/useUser";
+import asyncStorage from "@react-native-async-storage/async-storage/src/AsyncStorage";
 
 // Profile Section Component
 const ProfileSection = ({ title, icon, onPress }) => {
@@ -33,38 +46,77 @@ const PersonalInfoSection = ({ user, onEdit }) => {
 
             <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Full Name</Text>
-                <Text style={styles.infoValue}>{user.name}</Text>
+                <Text style={styles.infoValue}>{user.userFullName}</Text>
             </View>
 
             <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{user.email}</Text>
+                <Text style={styles.infoValue}>{user.userEmail}</Text>
             </View>
 
             <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>{user.phone}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Location</Text>
-                <Text style={styles.infoValue}>{user.location}</Text>
+                <Text style={styles.infoValue}>{user.userPhoneNumber}</Text>
             </View>
         </View>
     );
 };
 
-export default function BuyerProfileScreen({navigation}) {
+export default function BuyerProfileScreen({navigation, onLogout}) {
     const [user, setUser] = useState({
-        name: 'John Doe',
-        email: 'john.doe@example.com',
-        phone: '+94 77 213 4567',
-        location: 'Colombo, Sri Lanka',
-        profileImage: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8cGVyc29ufGVufDB8fDB8fHww'
+        userFullName: '',
+        userEmail: '',
+        userId: '',
+        userRole: '',
+        userPhoneNumber: '',
+        userAddresses: [],
+        userCart: []
     });
-
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [passwordModalVisible, setPasswordModalVisible] = useState(false);
     const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const loadUserData = async () => {
+            try {
+                // Get user data from AsyncStorage
+                const userData = await AsyncStorage.getItem('userData');
+
+                if (userData) {
+                    const parsedUserData = JSON.parse(userData);
+
+                    setUser({
+                        userId: parsedUserData.userId,
+                        userRole: parsedUserData.userRole,
+                        userFullName: parsedUserData.userFullName,
+                        userEmail: parsedUserData.userEmail,
+                        userPhoneNumber: parsedUserData.userPhoneNumber,
+                        userAddresses: JSON.parse(parsedUserData.userAddresses || '[]'),
+                        userCart: JSON.parse(parsedUserData.userCart || '[]')
+                    });
+                } else {
+                    // Handle case where user data is not found
+                    console.log('User data not found in AsyncStorage');
+                    // Redirect to login if needed
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'Login' }],
+                    });
+                }
+            } catch (error) {
+                console.log('Error loading user data:', error);
+                Alert.alert(
+                    'Error',
+                    'Failed to load user data. Please log in again.'
+                );
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadUserData();
+    }, [navigation]);
 
     const handleBackPress = () => {
         navigation.goBack();
@@ -74,24 +126,90 @@ export default function BuyerProfileScreen({navigation}) {
         setPersonalInfoModalVisible(true);
     }
 
-    const handleSavePersonalInfo = (updatedInfo) => {
-        setUser({
-            ...user,
-            ...updatedInfo
-        });
-        Alert.alert("Success", "Personal information updated successfully");
+    const handleSavePersonalInfo = async (updatedInfo) => {
+        try {
+            const updatedUser = {
+                ...user,
+                ...updatedInfo
+            };
+
+            setUser(updatedUser);
+
+            // Update AsyncStorage with new user data
+            const userData = await AsyncStorage.getItem('userData');
+            if (userData) {
+                const parsedUserData = JSON.parse(userData);
+                const updatedUserData = {
+                    ...parsedUserData,
+                    userFullName: updatedInfo.userFullName || parsedUserData.userFullName,
+                    userPhoneNumber: updatedInfo.userPhoneNumber || parsedUserData.userPhoneNumber,
+                    // Add other fields that might be updated
+                };
+
+                await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+                Alert.alert("Success", "Personal information updated successfully");
+            }
+        } catch (error) {
+            console.log('Error updating user data:', error);
+            Alert.alert(
+                'Error',
+                'Failed to update personal information. Please try again.'
+            );
+        }
     }
 
     const handleTransactions = () => {
         navigation.navigate('TransactionHistory')
     }
 
-    const handleSignOut = () => {
-        console.log('Sign out pressed');
-    }
+    const handleLogout = async () => {
+        if (isLoggingOut) return; // Prevent multiple logout attempts
+
+        setIsLoggingOut(true);
+
+        try {
+            // Keys to be removed from AsyncStorage
+            const keysToRemove = [
+                'userData'
+            ];
+
+            // Clear all authentication-related data from AsyncStorage
+            await AsyncStorage.multiRemove(keysToRemove);
+
+            // Call the onLogout function from props to update auth state
+            if (typeof onLogout === 'function') {
+                onLogout();
+            } else {
+                console.warn('onLogout is not a function');
+                // Fallback navigation if onLogout is not provided
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' }],
+                });
+            }
+        } catch (error) {
+            console.log('Logout Failed', error);
+            Alert.alert(
+                'Error',
+                'Failed to log out. Please try again.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
 
     const handlePrivacySecurity = () => {
         setPasswordModalVisible(true);
+    }
+
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0000ff" />
+                <Text>Loading profile...</Text>
+            </SafeAreaView>
+        );
     }
 
     return (
@@ -107,12 +225,8 @@ export default function BuyerProfileScreen({navigation}) {
 
             <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.profileHeader}>
-                    <Image
-                        source={{ uri: user.profileImage }}
-                        style={styles.profileImage}
-                    />
-                    <Text style={styles.profileName}>{user.name}</Text>
-                    <Text style={styles.profileEmail}>{user.email}</Text>
+                    <Text style={styles.profileName}>{user.userFullName}</Text>
+                    <Text style={styles.profileEmail}>{user.userEmail}</Text>
                 </View>
 
                 <PersonalInfoSection user={user} onEdit={handleEditProfile} />
@@ -148,7 +262,7 @@ export default function BuyerProfileScreen({navigation}) {
                         onPress={handlePrivacySecurity}
                     />
 
-                    <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+                    <TouchableOpacity style={styles.signOutButton} onPress={handleLogout}>
                         <Text style={styles.signOutText}>Sign Out</Text>
                     </TouchableOpacity>
                 </View>

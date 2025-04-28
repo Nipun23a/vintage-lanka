@@ -1,8 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Switch } from 'react-native';
+import {SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Switch, Alert} from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useState } from 'react';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Header Component
 const Header = () => {
@@ -121,10 +122,54 @@ const SettingsSection = ({ title, icon, toggleEnabled, onToggle, hasChevron, onP
 };
 
 // Account Settings Component
-const AccountSettings = () => {
+const AccountSettings = ({ onLogout }) => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false); // Add loading state for logout
     const navigation = useNavigation();
+
+    const handleLogout = async () => {
+        if (isLoggingOut) return; // Prevent multiple logout attempts
+
+        setIsLoggingOut(true);
+
+        try {
+            // Keys to be removed from AsyncStorage
+            const keysToRemove = [
+                'userId',
+                'userRole',
+                'userFullName',
+                'userEmail',
+                'userPhoneNumber',
+                'userAddresses',
+                'userCart'
+            ];
+
+            // Clear all authentication-related data from AsyncStorage
+            await AsyncStorage.multiRemove(keysToRemove);
+
+            // Call the onLogout function from props to update auth state
+            if (typeof onLogout === 'function') {
+                onLogout();
+            } else {
+                console.warn('onLogout is not a function');
+                // Fallback navigation if onLogout is not provided
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'SellerTabs' }], // Or 'SellerTabs' depending on context
+                });
+            }
+        } catch (error) {
+            console.log('Logout Failed', error);
+            Alert.alert(
+                'Error',
+                'Failed to log out. Please try again.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
 
     return (
         <View style={styles.accountSettingsContainer}>
@@ -134,28 +179,28 @@ const AccountSettings = () => {
                 title="Personal Information"
                 icon="user"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Personal Info')}
+                onPress={() => navigation.navigate('PersonalInfo')}
             />
 
             <SettingsSection
                 title="Payment Methods"
                 icon="credit-card"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Payment Methods')}
+                onPress={() => navigation.navigate('PaymentMethods')}
             />
 
             <SettingsSection
                 title="Shipping Information"
                 icon="truck"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Shipping Info')}
+                onPress={() => navigation.navigate('ShippingInfo')}
             />
 
             <SettingsSection
                 title="Tax Information"
                 icon="file-text"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Tax Info')}
+                onPress={() => navigation.navigate('TaxInfo')}
             />
 
             <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Preferences</Text>
@@ -178,7 +223,7 @@ const AccountSettings = () => {
                 title="Language"
                 icon="globe"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Language Settings')}
+                onPress={() => navigation.navigate('LanguageSettings')}
             />
 
             <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Help & Support</Text>
@@ -187,32 +232,41 @@ const AccountSettings = () => {
                 title="Help Center"
                 icon="question-circle"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Help Center')}
+                onPress={() => navigation.navigate('HelpCenter')}
             />
 
             <SettingsSection
                 title="Contact Support"
                 icon="envelope"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Contact Support')}
+                onPress={() => navigation.navigate('ContactSupport')}
             />
 
             <SettingsSection
                 title="About"
                 icon="info-circle"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to About')}
+                onPress={() => navigation.navigate('About')}
             />
 
-            <TouchableOpacity style={styles.logoutButton} onPress={() => console.log('Logout')}>
+            <TouchableOpacity
+                style={[
+                    styles.logoutButton,
+                    isLoggingOut && styles.logoutButtonDisabled
+                ]}
+                onPress={handleLogout}
+                disabled={isLoggingOut}
+            >
                 <FontAwesome name="sign-out" size={18} color="#e74c3c" />
-                <Text style={styles.logoutText}>Log Out</Text>
+                <Text style={styles.logoutText}>
+                    {isLoggingOut ? 'Logging out...' : 'Log Out'}
+                </Text>
             </TouchableOpacity>
         </View>
     );
 };
 
-export default function SellerProfileScreen() {
+export default function SellerProfileScreen({onLogout}) {
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar style="dark-content" backgroundColor="#fff" />
@@ -221,7 +275,7 @@ export default function SellerProfileScreen() {
                 <ProfileHeader />
                 <StoreStats />
                 <StoreInformation />
-                <AccountSettings />
+                <AccountSettings onLogout={onLogout} />
                 <View style={styles.footer} />
             </ScrollView>
         </SafeAreaView>

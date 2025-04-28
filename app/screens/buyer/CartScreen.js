@@ -1,8 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import {SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity,Image, View} from 'react-native';
+import {SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, Image, View, Alert} from 'react-native';
 import {FontAwesome} from "@expo/vector-icons";
 import Header from "../../components/Header";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 
 
 
@@ -69,6 +69,7 @@ const PromoCode = ({ promoCode, setPromoCode, onApply }) => {
     );
 };
 
+
 // Order Summary Component
 const OrderSummary = ({ subtotal, shipping, discount, total }) => {
     return (
@@ -102,36 +103,11 @@ const OrderSummary = ({ subtotal, shipping, discount, total }) => {
 
 // Import TextInput for promo code
 import { TextInput } from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function CartScreen({ navigation }) {
-    // Sample cart data - replace with your actual cart implementation
-    const [cartItems, setCartItems] = useState([
-        {
-            id: '1',
-            name: 'Vintage Typewriter',
-            image: 'https://images.unsplash.com/reserve/LJIZlzHgQ7WPSh5KVTCB_Typewriter.jpg?q=80&w=1992&auto=format&fit=crop&ixlib=rb-4.0.3',
-            price: 125.00,
-            variant: 'Black, 1960s Model',
-            quantity: 1
-        },
-        {
-            id: '2',
-            name: 'Antique Camera',
-            image: 'https://images.unsplash.com/photo-1630012974522-7e683def2ae5?q=80&w=2127&auto=format&fit=crop&ixlib=rb-4.0.3',
-            price: 89.50,
-            variant: 'Brown, Film Camera',
-            quantity: 2
-        },
-        {
-            id: '3',
-            name: 'Vintage Record Player',
-            image: 'https://images.unsplash.com/photo-1679973957366-2f926a250629?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3',
-            price: 199.99,
-            variant: 'Wood Finish',
-            quantity: 1
-        }
-    ]);
-
+    const [cartItems, setCartItems] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [promoCode, setPromoCode] = useState('');
     const [discount, setDiscount] = useState(0);
 
@@ -140,26 +116,75 @@ export default function CartScreen({ navigation }) {
     const shipping = subtotal > 0 ? 10.00 : 0.00;
     const total = subtotal + shipping - discount;
 
+    // Load cart items from AsyncStorage when component mounts
+    useEffect(() => {
+        const loadCartItems = async () => {
+            try {
+                setIsLoading(true);
+                const userData = await AsyncStorage.getItem('userData');
+
+                if (userData) {
+                    const parsedUserData = JSON.parse(userData);
+                    if (parsedUserData.userCart) {
+                        const userCart = JSON.parse(parsedUserData.userCart);
+                        setCartItems(userCart);
+                    }
+                }
+            } catch (error) {
+                console.log('Error loading cart items:', error);
+                Alert.alert('Error', 'Failed to load your cart items.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadCartItems();
+    }, []);
+
+    // Update cart in AsyncStorage whenever cart items change
+    const updateCartInStorage = async (updatedCart) => {
+        try {
+            const userData = await AsyncStorage.getItem('userData');
+
+            if (userData) {
+                const parsedUserData = JSON.parse(userData);
+                const updatedUserData = {
+                    ...parsedUserData,
+                    userCart: JSON.stringify(updatedCart)
+                };
+
+                await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+            }
+        } catch (error) {
+            console.log('Error updating cart in storage:', error);
+            Alert.alert('Error', 'Failed to update your cart.');
+        }
+    };
+
     const handleBackPress = () => {
-        // Handle navigation back
-        console.log('Back button pressed');
         navigation.goBack();
     };
 
     const handleRemoveItem = (itemId) => {
-        setCartItems(cartItems.filter(item => item.id !== itemId));
+        const updatedCart = cartItems.filter(item => item.id !== itemId);
+        setCartItems(updatedCart);
+        updateCartInStorage(updatedCart);
     };
 
     const handleIncrement = (itemId) => {
-        setCartItems(cartItems.map(item =>
+        const updatedCart = cartItems.map(item =>
             item.id === itemId ? { ...item, quantity: item.quantity + 1 } : item
-        ));
+        );
+        setCartItems(updatedCart);
+        updateCartInStorage(updatedCart);
     };
 
     const handleDecrement = (itemId) => {
-        setCartItems(cartItems.map(item =>
+        const updatedCart = cartItems.map(item =>
             item.id === itemId && item.quantity > 1 ? { ...item, quantity: item.quantity - 1 } : item
-        ));
+        );
+        setCartItems(updatedCart);
+        updateCartInStorage(updatedCart);
     };
 
     const handleApplyPromo = () => {
@@ -167,18 +192,33 @@ export default function CartScreen({ navigation }) {
         if (promoCode.toUpperCase() === 'VINTAGE20') {
             const discountAmount = subtotal * 0.2;
             setDiscount(discountAmount);
-            alert('Promo code applied successfully!');
+            Alert.alert('Success', 'Promo code applied successfully!');
         } else if (promoCode) {
-            alert('Invalid promo code');
+            Alert.alert('Error', 'Invalid promo code');
             setDiscount(0);
         }
     };
 
     const handleCheckout = () => {
         // Navigate to checkout screen
-        console.log('Proceed to checkout');
         navigation.navigate('Checkout');
     };
+
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <Header
+                    title="My Cart"
+                    showBackButton={true}
+                    onBackPress={handleBackPress}
+                />
+                <View style={styles.loadingContainer}>
+                    <FontAwesome name="spinner" size={40} color="#333" />
+                    <Text style={styles.loadingText}>Loading your cart...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -240,9 +280,7 @@ export default function CartScreen({ navigation }) {
                     <TouchableOpacity
                         style={styles.continueShoppingButton}
                         onPress={() => {
-                            // Navigate to products screen or home
-                            console.log('Continue shopping');
-                            navigation.navigate('Home');
+                            navigation.navigate('BuyerTabs', { screen: 'Home' });
                         }}
                     >
                         <Text style={styles.continueShoppingText}>Continue Shopping</Text>

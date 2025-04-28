@@ -29,17 +29,16 @@ export default function LoginScreen({ navigation, onLogin }) {
             if (response.status === 200){
                 const {user} = response.data;
 
-                // Store user information in AsyncStorage
-                await AsyncStorage.setItem('userId',user._id);
-                await AsyncStorage.setItem('userRole',user.role);
-                await AsyncStorage.setItem('userFullName',user.fullname);
-                await AsyncStorage.setItem('userEmail',user.email);
-                await AsyncStorage.setItem('userPhoneNumber', user.phoneNumber);
-
-                // Store address and cart information in AsyncStorage
-                await AsyncStorage.setItem('userAddresses', JSON.stringify(user.addresses));
-                await AsyncStorage.setItem('userCart', JSON.stringify(user.cart));
-
+                const userData = {
+                    userId: user._id,
+                    userRole: user.role,
+                    userFullName: user.fullname,
+                    userEmail: user.email,
+                    userPhoneNumber: user.phoneNumber,
+                    userAddresses: JSON.stringify(user.addresses),
+                    userCart: JSON.stringify(user.cart),
+                };
+                await AsyncStorage.setItem('userData', JSON.stringify(userData));
                 if (user.role === 'seller'){
                     onLogin('seller');
                     return;
