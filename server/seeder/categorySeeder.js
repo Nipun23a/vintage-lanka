@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const Category = require('./models/categoryModel'); // Adjust the path according to your project structure
+const Category = require('../models/categoryModel'); // Adjust the path according to your project structure
 
 // MongoDB URI (replace with your own connection string)
-const uri = '#';
+const uri = 'mongodb+srv://hasangasachinthani2001:sNg9OIhVy3g4RuFj@cluster0.7jzsypp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 
 const categories = [
     {

@@ -1,7 +1,7 @@
 // ProductModel.js
 const mongoose = require('mongoose');
-const Category = require('./CategoryModel');
-const User = require('./UserModel');
+const Category = require('./categoryModel');
+const User = require('./userModel');
 
 // Define review schema for product reviews
 const reviewSchema = new mongoose.Schema({

@@ -46,6 +46,12 @@ const userSchema = new mongoose.Schema({
         required: true,
         enum: ['admin', 'buyer', 'seller'],
     },
+    profileImage:{
+        type:String,
+        required: function (){
+            return this.role === 'seller';
+        }
+    },
     addresses: [addressSchema],
     cart: [cartItemSchema], // User's Cart
     favourites: [{
