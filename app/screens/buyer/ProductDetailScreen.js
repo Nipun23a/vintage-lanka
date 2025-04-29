@@ -59,7 +59,21 @@ const ImageGallery = ({ images = [] }) => {
 };
 
 // Product Info Component
-const ProductInfo = ({ title, price, discountPrice, seller, productId, isFavorite, onToggleFavorite }) => {
+const ProductInfo = ({ title, price, discountPrice, seller, productId, isFavorite, onToggleFavorite, navigation }) => {
+    // Add navigation to the props
+
+    const handleContactPress = () => {
+        if (!seller) return;
+        
+        navigation.navigate('Chat', {
+            sellerId: seller._id,
+            sellerName: seller.fullname || seller.name || "Seller",
+            sellerImage: seller.profileImage || 'https://via.placeholder.com/50',
+            productId: productId,
+            productTitle: title
+        });
+    };
+
     return (
         <View style={styles.productInfoContainer}>
             <View style={styles.productTitleRow}>
@@ -95,7 +109,7 @@ const ProductInfo = ({ title, price, discountPrice, seller, productId, isFavorit
                         style={styles.sellerImage}
                     />
                     <View style={styles.sellerInfo}>
-                        <Text style={styles.sellerName}>{seller.name || "Seller"}</Text>
+                        <Text style={styles.sellerName}>{seller.name || seller.fullname || "Seller"}</Text>
                         <View style={styles.ratingContainer}>
                             <FontAwesome name="star" size={16} color="#FFD700" />
                             <FontAwesome name="star" size={16} color="#FFD700" />
@@ -105,7 +119,10 @@ const ProductInfo = ({ title, price, discountPrice, seller, productId, isFavorit
                             <Text style={styles.ratingText}>({seller.rating || "4.5"})</Text>
                         </View>
                     </View>
-                    <TouchableOpacity style={styles.contactButton}>
+                    <TouchableOpacity 
+                        style={styles.contactButton}
+                        onPress={handleContactPress}
+                    >
                         <Text style={styles.contactButtonText}>Contact</Text>
                     </TouchableOpacity>
                 </View>
@@ -436,6 +453,7 @@ export default function ProductDetailScreen() {
                             productId={product._id}
                             isFavorite={isFavorite}
                             onToggleFavorite={handleToggleFavorite}
+                            navigation={navigation} // Pass navigation prop here
                         />
                         <ProductDetails 
                             category={product.category} 

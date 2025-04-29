@@ -22,7 +22,7 @@ import CartScreen from "../screens/buyer/CartScreen";
 import CheckoutScreen from "../screens/buyer/CheckoutScreen";
 import OrderHistoryScreen from "../screens/buyer/OrderHistoryScreen";
 import TransactionHistoryScreen from "../screens/buyer/TransactionHistoryScreen";
-
+import ChatScreen from '../screens/buyer/ChatScreen';
 // Seller Screens
 import SellerHomeScreen from "../screens/seller/SellerHomeScreen";
 import SellerProductsScreen from "../screens/seller/SellerProductsScreen";
@@ -32,6 +32,7 @@ import SellerReceivePaymentScreen from "../screens/seller/SellerReceivePaymentSc
 import SellerPaymentsScreen from "../screens/seller/SellerPaymentsScreen";
 import SellerAddProductScreen from "../screens/seller/SellerAddProductScreen";
 import SellerProfileScreen from "../screens/seller/SellerProfileScreen";
+
 
 // Create the navigation stacks
 const Stack = createStackNavigator();
@@ -107,6 +108,7 @@ const BuyerNavigator = ({ onLogout }) => {
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
             <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+            <Stack.Screen name ="Chat" component={ChatScreen}/>
         </Stack.Navigator>
     );
 };
@@ -162,6 +164,7 @@ const SellerNavigator = ({ onLogout }) => {
             </Stack.Screen>
             <Stack.Screen name="AddProduct" component={SellerAddProductScreen} />
             <Stack.Screen name="Payments" component={SellerPaymentsScreen} />
+            <Stack.Screen name ="Chat" component={ChatScreen}/>
             <Stack.Screen name="ReceivePayment" component={SellerReceivePaymentScreen} />
         </Stack.Navigator>
     );

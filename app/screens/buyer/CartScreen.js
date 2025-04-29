@@ -3,42 +3,55 @@ import {SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, Image, Vie
 import {FontAwesome} from "@expo/vector-icons";
 import Header from "../../components/Header";
 import {useEffect, useState} from "react";
-
+import axios from 'axios';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { TextInput } from 'react-native';
 
 
 // Cart Item Component
 const CartItem = ({ item, onRemove, onIncrement, onDecrement }) => {
+    // Add default fallback values in case any property is undefined
+    const {
+        id = '',
+        image = '',
+        name = 'Product',
+        price = 0,
+        variant = '',
+        quantity = 1
+    } = item || {};
+
     return (
         <View style={styles.cartItem}>
-            <Image source={{ uri: item.image }} style={styles.cartItemImage} />
+            <Image 
+                source={{ uri: image }} 
+                style={styles.cartItemImage}
+            />
 
             <View style={styles.cartItemDetails}>
                 <View style={styles.cartItemTop}>
-                    <Text style={styles.cartItemName}>{item.name}</Text>
-                    <TouchableOpacity onPress={() => onRemove(item.id)}>
+                    <Text style={styles.cartItemName}>{name}</Text>
+                    <TouchableOpacity onPress={() => onRemove(id)}>
                         <FontAwesome name="trash" size={18} color="#e74c3c" />
                     </TouchableOpacity>
                 </View>
 
-                <Text style={styles.cartItemPrice}>${item.price.toFixed(2)}</Text>
+                <Text style={styles.cartItemPrice}>${price.toFixed(2)}</Text>
 
                 <View style={styles.cartItemBottom}>
-                    <Text style={styles.cartItemVariant}>{item.variant}</Text>
-
                     <View style={styles.quantityControl}>
                         <TouchableOpacity
                             style={styles.quantityButton}
-                            onPress={() => onDecrement(item.id)}
-                            disabled={item.quantity <= 1}
+                            onPress={() => onDecrement(id)}
+                            disabled={quantity <= 1}
                         >
-                            <FontAwesome name="minus" size={12} color={item.quantity <= 1 ? "#ccc" : "#333"} />
+                            <FontAwesome name="minus" size={12} color={quantity <= 1 ? "#ccc" : "#333"} />
                         </TouchableOpacity>
 
-                        <Text style={styles.quantityText}>{item.quantity}</Text>
+                        <Text style={styles.quantityText}>{quantity}</Text>
 
                         <TouchableOpacity
                             style={styles.quantityButton}
-                            onPress={() => onIncrement(item.id)}
+                            onPress={() => onIncrement(id)}
                         >
                             <FontAwesome name="plus" size={12} color="#333" />
                         </TouchableOpacity>
@@ -68,7 +81,6 @@ const PromoCode = ({ promoCode, setPromoCode, onApply }) => {
         </View>
     );
 };
-
 
 // Order Summary Component
 const OrderSummary = ({ subtotal, shipping, discount, total }) => {
@@ -101,63 +113,116 @@ const OrderSummary = ({ subtotal, shipping, discount, total }) => {
     );
 };
 
-// Import TextInput for promo code
-import { TextInput } from 'react-native';
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 export default function CartScreen({ navigation }) {
     const [cartItems, setCartItems] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [promoCode, setPromoCode] = useState('');
     const [discount, setDiscount] = useState(0);
+    const [userId, setUserId] = useState(null);
 
-    // Calculate cart totals
-    const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    // Calculate cart totals - Modified to handle the new data structure
+    const subtotal = cartItems.reduce((total, item) => {
+        // Access price from the product object and make sure it exists
+        const price = item.product?.discountPrice || item.product?.price || 0;
+        return total + (price * item.quantity);
+    }, 0);
     const shipping = subtotal > 0 ? 10.00 : 0.00;
     const total = subtotal + shipping - discount;
 
-    // Load cart items from AsyncStorage when component mounts
+    // Fetch userId from AsyncStorage when component mounts
     useEffect(() => {
-        const loadCartItems = async () => {
+        const getUserId = async () => {
             try {
-                setIsLoading(true);
                 const userData = await AsyncStorage.getItem('userData');
-
                 if (userData) {
                     const parsedUserData = JSON.parse(userData);
-                    if (parsedUserData.userCart) {
-                        const userCart = JSON.parse(parsedUserData.userCart);
-                        setCartItems(userCart);
-                    }
+                    setUserId(parsedUserData.userId);
                 }
             } catch (error) {
-                console.log('Error loading cart items:', error);
-                Alert.alert('Error', 'Failed to load your cart items.');
-            } finally {
-                setIsLoading(false);
+                console.log('Error fetching user ID:', error);
+                Alert.alert('Error', 'Failed to fetch user data.');
             }
         };
 
-        loadCartItems();
+        getUserId();
     }, []);
 
-    // Update cart in AsyncStorage whenever cart items change
-    const updateCartInStorage = async (updatedCart) => {
+    // Load cart items from API when userId is available
+    useEffect(() => {
+        if (userId) {
+            fetchCartItems();
+        }
+    }, [userId]);
+
+    // Fetch cart items from API
+    const fetchCartItems = async () => {
+        try {
+            setIsLoading(true);
+            const response = await axios.get(`http://192.168.8.151:5000/api/users/${userId}/cart`);
+            
+            if (response.status === 200) {
+                // Extract cart items from the response
+                const cartData = response.data.cart || [];
+                setCartItems(cartData);
+            }
+        } catch (error) {
+            console.log('Error fetching cart items:', error);
+            if (error.response) {
+                Alert.alert('Error', error.response.data.message || 'Failed to load cart items');
+            } else {
+                Alert.alert('Error', 'Failed to load your cart items. Please check your connection.');
+            }
+            
+            // Fallback to local storage if API fails
+            tryLoadCartFromLocalStorage();
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Fallback to load cart from AsyncStorage
+    const tryLoadCartFromLocalStorage = async () => {
         try {
             const userData = await AsyncStorage.getItem('userData');
+            if (userData) {
+                const parsedUserData = JSON.parse(userData);
+                if (parsedUserData.userCart) {
+                    const userCart = JSON.parse(parsedUserData.userCart);
+                    setCartItems(userCart);
+                }
+            }
+        } catch (error) {
+            console.log('Error loading cart from local storage:', error);
+        }
+    };
 
+    // Update cart on the server and in local storage
+    const updateCart = async (updatedCart) => {
+        try {
+            // Update UI first for better user experience
+            setCartItems(updatedCart);
+            
+            // Update on the server
+            await axios.post(`http://192.168.8.151:5000/api/users/${userId}/cart`, {
+                cart: updatedCart
+            });
+            
+            // Update in local storage as backup
+            const userData = await AsyncStorage.getItem('userData');
             if (userData) {
                 const parsedUserData = JSON.parse(userData);
                 const updatedUserData = {
                     ...parsedUserData,
                     userCart: JSON.stringify(updatedCart)
                 };
-
                 await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
             }
         } catch (error) {
-            console.log('Error updating cart in storage:', error);
-            Alert.alert('Error', 'Failed to update your cart.');
+            console.log('Error updating cart:', error);
+            Alert.alert('Error', 'Failed to update your cart. Please try again.');
+            
+            // Refresh the cart to ensure UI matches server state
+            fetchCartItems();
         }
     };
 
@@ -166,25 +231,22 @@ export default function CartScreen({ navigation }) {
     };
 
     const handleRemoveItem = (itemId) => {
-        const updatedCart = cartItems.filter(item => item.id !== itemId);
-        setCartItems(updatedCart);
-        updateCartInStorage(updatedCart);
+        const updatedCart = cartItems.filter(item => item.product._id !== itemId);
+        updateCart(updatedCart);
     };
 
     const handleIncrement = (itemId) => {
         const updatedCart = cartItems.map(item =>
-            item.id === itemId ? { ...item, quantity: item.quantity + 1 } : item
+            item.product._id === itemId ? { ...item, quantity: item.quantity + 1 } : item
         );
-        setCartItems(updatedCart);
-        updateCartInStorage(updatedCart);
+        updateCart(updatedCart);
     };
 
     const handleDecrement = (itemId) => {
         const updatedCart = cartItems.map(item =>
-            item.id === itemId && item.quantity > 1 ? { ...item, quantity: item.quantity - 1 } : item
+            item.product._id === itemId && item.quantity > 1 ? { ...item, quantity: item.quantity - 1 } : item
         );
-        setCartItems(updatedCart);
-        updateCartInStorage(updatedCart);
+        updateCart(updatedCart);
     };
 
     const handleApplyPromo = () => {
@@ -237,8 +299,15 @@ export default function CartScreen({ navigation }) {
                         <View style={styles.cartItemsContainer}>
                             {cartItems.map(item => (
                                 <CartItem
-                                    key={item.id}
-                                    item={item}
+                                    key={item.product._id}
+                                    item={{
+                                        id: item.product._id,
+                                        name: item.product.title,
+                                        image: item.product.mainImage,
+                                        price: item.product.discountPrice || item.product.price,
+                                        variant: `Category: ${item.product.category}`,
+                                        quantity: item.quantity
+                                    }}
                                     onRemove={handleRemoveItem}
                                     onIncrement={handleIncrement}
                                     onDecrement={handleDecrement}

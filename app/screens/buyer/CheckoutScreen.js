@@ -4,6 +4,8 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useState, useEffect } from 'react';
 import Header from "../../components/Header";
 import { initStripe, useStripe } from '@stripe/stripe-react-native';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Section Title Component
 const SectionTitle = ({ title }) => {
@@ -14,8 +16,8 @@ const SectionTitle = ({ title }) => {
     );
 };
 
-// Address Selection Component
-const AddressSelect = ({ addresses, selectedAddress, onSelect }) => {
+// Address Display Component - Simplified to only show addresses
+const AddressDisplay = ({ addresses, selectedAddress, onSelect }) => {
     return (
         <View style={styles.addressContainer}>
             {addresses.map((address, index) => (
@@ -39,27 +41,8 @@ const AddressSelect = ({ addresses, selectedAddress, onSelect }) => {
                     <Text style={styles.addressText}>{address.street}</Text>
                     <Text style={styles.addressText}>{address.city}, {address.state} {address.zip}</Text>
                     <Text style={styles.addressText}>{address.phone}</Text>
-
-                    <View style={styles.addressActions}>
-                        <TouchableOpacity style={styles.addressAction}>
-                            <FontAwesome name="pencil" size={14} color="#666" />
-                            <Text style={styles.addressActionText}>Edit</Text>
-                        </TouchableOpacity>
-
-                        {!address.isDefault && (
-                            <TouchableOpacity style={styles.addressAction}>
-                                <FontAwesome name="trash" size={14} color="#666" />
-                                <Text style={styles.addressActionText}>Delete</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
                 </TouchableOpacity>
             ))}
-
-            <TouchableOpacity style={styles.addAddressButton}>
-                <FontAwesome name="plus" size={16} color="#3498db" />
-                <Text style={styles.addAddressText}>Add New Address</Text>
-            </TouchableOpacity>
         </View>
     );
 };
@@ -96,11 +79,6 @@ const PaymentMethod = ({ methods, selectedMethod, onSelect }) => {
                     </View>
                 </TouchableOpacity>
             ))}
-
-            <TouchableOpacity style={styles.addPaymentButton}>
-                <FontAwesome name="plus" size={16} color="#3498db" />
-                <Text style={styles.addPaymentText}>Add Payment Method</Text>
-            </TouchableOpacity>
         </View>
     );
 };
@@ -156,35 +134,23 @@ export default function CheckoutScreen({ navigation, route }) {
     // Stripe initialization
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [loading, setLoading] = useState(false);
-
-    // Mock data for addresses
-    const [addresses, setAddresses] = useState([
-        {
-            name: 'John Doe',
-            street: '123 Vintage Lane',
-            city: 'Colombo',
-            state: 'Western Province',
-            zip: '10100',
-            phone: '+94 77 123 4567',
-            isDefault: true
-        },
-        {
-            name: 'John Doe',
-            street: '456 Antique Street',
-            city: 'Kandy',
-            state: 'Central Province',
-            zip: '20000',
-            phone: '+94 77 890 1234',
-            isDefault: false
-        }
-    ]);
+    
+    // User data state
+    const [userId, setUserId] = useState(null);
+    const [userData, setUserData] = useState(null);
+    
+    // Cart state
+    const [cartItems, setCartItems] = useState([]);
+    
+    // Address state
+    const [addresses, setAddresses] = useState([]);
+    const [selectedAddress, setSelectedAddress] = useState(0);
 
     // Mock data for payment methods
     const [paymentMethods, setPaymentMethods] = useState([
         {
             name: 'Credit Card (Stripe)',
             type: 'Visa',
-            lastDigits: '4567',
             icon: 'credit-card'
         },
         {
@@ -193,28 +159,7 @@ export default function CheckoutScreen({ navigation, route }) {
         }
     ]);
 
-    // Mock data for cart items
-    const [cartItems, setCartItems] = useState([
-        {
-            id: '1',
-            name: 'Vintage Typewriter',
-            image: 'https://images.unsplash.com/reserve/LJIZlzHgQ7WPSh5KVTCB_Typewriter.jpg?q=80&w=1992&auto=format&fit=crop&ixlib=rb-4.0.3',
-            price: 125.00,
-            variant: 'Black, 1960s Model',
-            quantity: 1
-        },
-        {
-            id: '2',
-            name: 'Antique Camera',
-            image: 'https://images.unsplash.com/photo-1630012974522-7e683def2ae5?q=80&w=2127&auto=format&fit=crop&ixlib=rb-4.0.3',
-            price: 89.50,
-            variant: 'Brown, Film Camera',
-            quantity: 2
-        }
-    ]);
-
     // State for selections
-    const [selectedAddress, setSelectedAddress] = useState(0);
     const [selectedPayment, setSelectedPayment] = useState(0);
     const [specialInstructions, setSpecialInstructions] = useState('');
 
@@ -223,6 +168,87 @@ export default function CheckoutScreen({ navigation, route }) {
     const shipping = 10.00;
     const discount = 0;
     const total = subtotal + shipping - discount;
+
+    // Load user data and cart on component mount
+    useEffect(() => {
+        fetchUserData();
+    }, []);
+
+    // Fetch user data from AsyncStorage
+    const fetchUserData = async () => {
+        try {
+            const userDataStr = await AsyncStorage.getItem('userData');
+            if (userDataStr) {
+                const parsedUserData = JSON.parse(userDataStr);
+                setUserData(parsedUserData);
+                setUserId(parsedUserData.userId);
+                
+                // Parse addresses from user data
+                if (parsedUserData.userAddresses) {
+                    try {
+                        const userAddresses = JSON.parse(parsedUserData.userAddresses);
+                        
+                        // Format addresses to match the expected format
+                        const formattedAddresses = userAddresses.map(addr => ({
+                            name: parsedUserData.userFullName || 'User',
+                            street: addr.street || '',
+                            city: addr.city || '',
+                            state: addr.state || '',
+                            zip: addr.zip || '',
+                            phone: parsedUserData.userPhoneNumber || '',
+                            isDefault: addr.isDefault || false
+                        }));
+                        
+                        setAddresses(formattedAddresses.length > 0 ? formattedAddresses : []);
+                    } catch (e) {
+                        console.error('Error parsing addresses:', e);
+                        setAddresses([]);
+                    }
+                }
+                
+                // Fetch cart items
+                fetchCartItems(parsedUserData.userId);
+            }
+        } catch (error) {
+            console.error('Error fetching user data:', error);
+            Alert.alert('Error', 'Failed to load user data');
+        }
+    };
+
+    // Fetch cart items from API
+    const fetchCartItems = async (userId) => {
+        try {
+            setLoading(true);
+            const response = await axios.get(`http://192.168.8.151:5000/api/users/${userId}/cart`);
+            
+            if (response.status === 200) {
+                // Check if response.data.cart exists and is an array
+                if (response.data.cart && Array.isArray(response.data.cart)) {
+                    // Format cart items to match the expected structure
+                    const formattedCartItems = response.data.cart.map(item => ({
+                        id: item.product._id,
+                        name: item.product.title || 'Unnamed Product', // Use title instead of name
+                        image: item.product.mainImage || 'https://via.placeholder.com/150', // Use mainImage instead of imageUrl
+                        price: item.product.price,
+                        variant: item.product.category || 'Standard',
+                        quantity: item.quantity
+                    }));
+                    
+                    setCartItems(formattedCartItems);
+                } else {
+                    // If cart is empty or not in expected format, set empty array
+                    console.warn('Cart is empty or in unexpected format:', response.data);
+                    setCartItems([]);
+                    Alert.alert('Info', 'Your cart is empty');
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching cart:', error);
+            Alert.alert('Error', 'Failed to load cart items');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Initialize Stripe payment sheet
     useEffect(() => {
@@ -291,12 +317,12 @@ export default function CheckoutScreen({ navigation, route }) {
         }
     };
 
+    // Handle back button press
     const handleBackPress = () => {
-        // Handle navigation back to cart
-        console.log('Back button pressed');
         navigation.goBack();
     };
 
+    // Handle place order
     const handlePlaceOrder = async () => {
         // If selected payment is Card (Stripe)
         if (selectedPayment === 0) {
@@ -335,13 +361,31 @@ export default function CheckoutScreen({ navigation, route }) {
         }
     };
 
-    const processOrder = () => {
-        // Process the order details (would normally send to backend)
-        console.log('Order placed');
-        console.log('Selected address:', addresses[selectedAddress]);
-        console.log('Selected payment:', paymentMethods[selectedPayment]);
-        console.log('Special instructions:', specialInstructions);
-        console.log('Total amount:', total.toFixed(2));
+    const processOrder = async () => {
+        try {
+            // Create order object
+            const orderData = {
+                userId,
+                items: cartItems.map(item => ({
+                    productId: item.id,
+                    quantity: item.quantity,
+                    price: item.price
+                })),
+                shippingAddress: addresses[selectedAddress],
+                paymentMethod: paymentMethods[selectedPayment].name,
+                specialInstructions,
+                total
+            };
+            
+            // In a real app, you would send this to your backend
+            console.log('Order processed:', orderData);
+            
+            // Clear cart (optional)
+            // await axios.post(`http://192.168.8.151:5000/api/users/${userId}/cart/clear`);
+            
+        } catch (error) {
+            console.error('Error processing order:', error);
+        }
     };
 
     return (
@@ -357,11 +401,17 @@ export default function CheckoutScreen({ navigation, route }) {
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
                 <SectionTitle title="Shipping Address" />
-                <AddressSelect
-                    addresses={addresses}
-                    selectedAddress={selectedAddress}
-                    onSelect={setSelectedAddress}
-                />
+                {addresses.length > 0 ? (
+                    <AddressDisplay
+                        addresses={addresses}
+                        selectedAddress={selectedAddress}
+                        onSelect={setSelectedAddress}
+                    />
+                ) : (
+                    <View style={styles.noAddressContainer}>
+                        <Text style={styles.noAddressText}>No addresses found</Text>
+                    </View>
+                )}
 
                 <SectionTitle title="Payment Method" />
                 <PaymentMethod
@@ -397,7 +447,7 @@ export default function CheckoutScreen({ navigation, route }) {
                 <TouchableOpacity
                     style={styles.placeOrderButton}
                     onPress={handlePlaceOrder}
-                    disabled={loading}
+                    disabled={loading || addresses.length === 0}
                 >
                     <Text style={styles.placeOrderButtonText}>
                         {loading ? 'Processing...' : 'Place Order'}
@@ -750,5 +800,105 @@ const styles = StyleSheet.create({
     },
     footer: {
         height: 20,
+    },
+    // Modal Styles
+    modalContainer: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        margin: 20,
+        borderRadius: 12,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e1e1e1',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#333',
+    },
+    closeButton: {
+        padding: 5,
+    },
+    modalForm: {
+        padding: 16,
+        maxHeight: '60%',
+    },
+    inputLabel: {
+        fontSize: 14,
+        color: '#555',
+        marginBottom: 4,
+        marginTop: 10,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 6,
+        padding: 10,
+        fontSize: 16,
+        backgroundColor: '#f9f9f9',
+    },
+    defaultCheckbox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    checkbox: {
+        width: 22,
+        height: 22,
+        borderWidth: 1,
+        borderColor: '#3498db',
+        borderRadius: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    checkboxLabel: {
+        fontSize: 16,
+        color: '#333',
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        padding: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#e1e1e1',
+    },
+    cancelButton: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        marginRight: 8,
+        alignItems: 'center',
+    },
+    cancelButtonText: {
+        color: '#666',
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    saveButton: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 6,
+        backgroundColor: '#3498db',
+        marginLeft: 8,
+        alignItems: 'center',
+    },
+    saveButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '500',
     },
 });

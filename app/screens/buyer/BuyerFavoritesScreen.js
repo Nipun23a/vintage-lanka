@@ -167,7 +167,7 @@ export default function BuyerFavoritesScreen() {
                                     condition: item.condition || 'N/A',
                                 }}
                                     onRemove={() => handleRemoveFavorite(item._id)}
-                                    onPress={() => navigation.navigate('ProductDetail', { productId: item._id })}
+                                    onPress={() => navigation.navigate('ProductDetails', { productId: item._id })}
                                 />
                             ))}
                         </View>
