@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import {SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Switch, Alert} from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Header Component
@@ -25,11 +25,48 @@ const Header = () => {
 
 // Profile Header Component
 const ProfileHeader = () => {
+    const [user,setUser] = useState({
+        userFullName: "",
+        userEmail: '',
+        userProfileImage: '',
+    });
+
+
+    useEffect(()=> {
+        const loadUserData = async () => {
+            try{
+                const userData = await AsyncStorage.getItem('userData');
+                if (userData) {
+                    const parsedUserData = JSON.parse(userData);
+                    setUser({
+                        userFullName: parsedUserData.userFullName,
+                        userEmail: parsedUserData.userEmail,
+                        userProfileImage:parsedUserData.userProfileImage
+                    });
+                }else{
+                    console.log('User data not found in AsyncStorage');
+                    // Redirect to login if needed
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'Login' }],
+                    });
+                }
+            }catch(error){
+                console.log('Error loading user data:', error);
+                Alert.alert(
+                    'Error',
+                    'Failed to load user data. Please log in again.'
+                );
+            }
+        }
+
+        loadUserData();
+    },[])
     return (
         <View style={styles.profileHeader}>
             <View style={styles.profileImageContainer}>
                 <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=2940&auto=format&fit=crop' }}
+                    source={{ uri: user.userProfileImage || 'https://via.placeholder.com/150' }}
                     style={styles.profileImage}
                 />
                 <TouchableOpacity style={styles.editProfileImageButton}>
@@ -37,8 +74,8 @@ const ProfileHeader = () => {
                 </TouchableOpacity>
             </View>
             <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>John Doe</Text>
-                <Text style={styles.profileUsername}>@johndoesells</Text>
+                <Text style={styles.profileName}>{user.userFullName}</Text>
+                <Text style={styles.profileUsername}>{user.userEmail}</Text>
                 <View style={styles.profileStatus}>
                     <Text style={styles.profileStatusText}>Verified Seller</Text>
                     <FontAwesome name="check-circle" size={14} color="#2ecc71" style={{ marginLeft: 5 }} />

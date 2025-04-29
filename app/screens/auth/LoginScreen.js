@@ -35,10 +35,10 @@ export default function LoginScreen({ navigation, onLogin }) {
                     userFullName: user.fullname,
                     userEmail: user.email,
                     userPhoneNumber: user.phoneNumber,
+                    userProfileImage: user.profileImage ? user.profileImage : "",
                     userAddresses: JSON.stringify(user.addresses),
                     userCart: JSON.stringify(user.cart),
                     userFavourites:JSON.stringify(user.favourites),
-
                 };
                 await AsyncStorage.setItem('userData', JSON.stringify(userData));
                 if (user.role === 'seller'){
