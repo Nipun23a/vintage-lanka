@@ -8,7 +8,12 @@ const {
     deleteUser,
     addToCart,
     clearCart,
-    getCart, updatePassword, addFavourite, getFavourite,removeFavourite
+    getCart, updatePassword, addFavourite, getFavourite,removeFavourite,
+    updateCartQuantity,
+    addAddress,
+    updateAddress,
+    deleteAddress,
+    updateUserAddresses
 } = require('../controller/userController');
 
 // Register a new user
@@ -35,6 +40,9 @@ router.get('/:userId/cart', getCart);
 // Clear user's cart
 router.delete('/:userId/cart', clearCart);
 
+// Update the quantity cart
+//router.patch('/:userId/cart',updateCartQuantity);
+
 // Route for updating password
 router.patch('/:userId/password', updatePassword);
 
@@ -45,6 +53,11 @@ router.get('/:userId/favourites',getFavourite);
 router.post('/:userId/favourites/:productId', addFavourite);
 
 router.delete('/:userId/favourites/:productId', removeFavourite);
+
+router.post('/:id/addresses', addAddress);
+router.put('/:userId/addresses/:addressId', updateAddress);
+router.delete('/:userId/addresses/:addressId', deleteAddress);
+router.put('/:id/addresses', updateUserAddresses);
 
 
 module.exports = router;

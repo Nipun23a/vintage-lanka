@@ -97,7 +97,7 @@ exports.getProductById = async (req, res) => {
         const { productId } = req.params;
         const product = await Product.findById(productId)
             .populate('category', 'name')
-            .populate('seller', 'fullname phoneNumber');
+            .populate('seller', 'fullname phoneNumber profileImage');
 
         if (!product) {
             return res.status(404).json({ message: 'Product not found' });

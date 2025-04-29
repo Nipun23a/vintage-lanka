@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 // Register a new user
 exports.registerUser = async (req, res) => {
     try {
-        const { fullname, email, phoneNumber, password, role, addresses } = req.body;
+        const { fullname, email, phoneNumber, password, role, addresses, profileImage } = req.body;
 
         // Check if email already exists
         const existingEmail = await User.findOne({ email });
@@ -18,15 +18,24 @@ exports.registerUser = async (req, res) => {
             return res.status(400).json({ message: 'Phone number already registered.' });
         }
 
-        const newUser = new User({ fullname, email, phoneNumber, password, role, addresses });
+        // Build new user data object
+        const newUserData = { fullname, email, phoneNumber, password, role, addresses };
+
+        // Include profileImage only if provided
+        if (profileImage) {
+            newUserData.profileImage = profileImage;
+        }
+
+        const newUser = new User(newUserData);
         await newUser.save();
 
         res.status(201).json({ message: 'User registered successfully', userId: newUser._id });
     } catch (error) {
+        console.error(error.message);
         res.status(500).json({ message: 'Error registering user', error: error.message });
-        console.log(error.message);
     }
 };
+
 
 
 // Login user
@@ -65,11 +74,25 @@ exports.getUserById = async (req, res) => {
 // Update user
 exports.updateUser = async (req, res) => {
     try {
-        const { fullname,email, phoneNumber, role, addresses } = req.body;
+        const { fullname, email, phoneNumber, role, addresses, profileImage } = req.body;
+
+        // Build the update object conditionally
+        const updateData = {
+            fullname,
+            email,
+            phoneNumber,
+            role,
+            addresses,
+        };
+
+        // Only add profileImage if it's provided in the request
+        if (profileImage) {
+            updateData.profileImage = profileImage;
+        }
 
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            { fullname,email, phoneNumber, role, addresses },
+            updateData,
             { new: true, runValidators: true }
         ).select('-password');
 
@@ -79,6 +102,7 @@ exports.updateUser = async (req, res) => {
 
         res.status(200).json({ message: 'User updated successfully', user: updatedUser });
     } catch (error) {
+        console.error(error.message);
         res.status(500).json({ message: 'Error updating user', error: error.message });
     }
 };
@@ -240,6 +264,201 @@ exports.removeFavourite = async (req, res) => {
         }
     } catch (error) {
         res.status(500).json({ message: 'Error removing product from favourites', error: error.message });
+    }
+};
+
+exports.addAddress = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const newAddress = req.body;
+        
+        // Find the user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Add the new address
+        user.addresses.push(newAddress);
+        
+        // If the new address is set as default, update other addresses
+        if (newAddress.isDefault) {
+            user.addresses.forEach((address, index) => {
+                // Skip the newly added address (which is the last one)
+                if (index !== user.addresses.length - 1) {
+                    address.isDefault = false;
+                }
+            });
+        }
+
+        await user.save();
+        
+        res.status(200).json({ 
+            message: 'Address added successfully', 
+            addresses: user.addresses 
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            message: 'Error adding address', 
+            error: error.message 
+        });
+        console.log(error.message);
+    }
+};
+
+// Update Address Controller
+exports.updateAddress = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const addressId = req.params.addressId;
+        const updatedAddressData = req.body;
+        
+        // Find the user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        // Find the address
+        if (!user.addresses.id) {
+            return res.status(404).json({ message: 'Address not found' });
+        }
+        
+        // Find the index of the address to update
+        const addressIndex = user.addresses.findIndex(
+            addr => addr._id.toString() === addressId
+        );
+        
+        if (addressIndex === -1) {
+            return res.status(404).json({ message: 'Address not found' });
+        }
+        
+        // Update the address
+        user.addresses[addressIndex] = {
+            ...user.addresses[addressIndex].toObject(),
+            ...updatedAddressData
+        };
+        
+        // If the updated address is set as default, update other addresses
+        if (updatedAddressData.isDefault) {
+            user.addresses.forEach((address, index) => {
+                if (index !== addressIndex) {
+                    address.isDefault = false;
+                }
+            });
+        }
+        
+        await user.save();
+        
+        res.status(200).json({ 
+            message: 'Address updated successfully', 
+            addresses: user.addresses 
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            message: 'Error updating address', 
+            error: error.message 
+        });
+        console.log(error.message);
+    }
+};
+
+// Delete Address Controller
+exports.deleteAddress = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const addressId = req.params.addressId;
+        
+        // Find the user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        // Find the index of the address to delete
+        const addressIndex = user.addresses.findIndex(
+            addr => addr._id.toString() === addressId
+        );
+        
+        if (addressIndex === -1) {
+            return res.status(404).json({ message: 'Address not found' });
+        }
+        
+        // Check if the address to be deleted is the default one
+        const isDefaultBeingDeleted = user.addresses[addressIndex].isDefault;
+        
+        // Remove the address
+        user.addresses.splice(addressIndex, 1);
+        
+        // If the deleted address was the default and there are other addresses,
+        // set the first remaining address as default
+        if (isDefaultBeingDeleted && user.addresses.length > 0) {
+            user.addresses[0].isDefault = true;
+        }
+        
+        await user.save();
+        
+        res.status(200).json({ 
+            message: 'Address deleted successfully', 
+            addresses: user.addresses 
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            message: 'Error deleting address', 
+            error: error.message 
+        });
+        console.log(error.message);
+    }
+};
+
+// Update User Addresses (Bulk Update)
+exports.updateUserAddresses = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { addresses } = req.body;
+        
+        if (!addresses || !Array.isArray(addresses)) {
+            return res.status(400).json({ message: 'Addresses must be provided as an array' });
+        }
+        
+        // Find the user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        // Replace all addresses
+        user.addresses = addresses;
+        
+        // Ensure there's only one default address
+        let hasDefault = false;
+        user.addresses.forEach((address) => {
+            if (address.isDefault) {
+                if (hasDefault) {
+                    address.isDefault = false;
+                } else {
+                    hasDefault = true;
+                }
+            }
+        });
+        
+        // If no default was set and there are addresses, set the first one as default
+        if (!hasDefault && user.addresses.length > 0) {
+            user.addresses[0].isDefault = true;
+        }
+        
+        await user.save();
+        
+        res.status(200).json({ 
+            message: 'Addresses updated successfully', 
+            addresses: user.addresses 
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            message: 'Error updating addresses', 
+            error: error.message 
+        });
+        console.log(error.message);
     }
 };
 

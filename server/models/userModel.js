@@ -120,6 +120,26 @@ userSchema.methods.addToCart = async function (productId, quantity = 1) {
     await this.save();
 };
 
+// Update cart quantity method
+userSchema.methods.updateCartQuantity = async function (productId, newQuantity) {
+    // Validate the new quantity
+    if (newQuantity < 1) {
+        throw new Error('Quantity must be at least 1');
+    }
+    
+    // Find the product in the cart
+    const cartItemIndex = this.cart.findIndex(item => item.product.toString() === productId.toString());
+    
+    if (cartItemIndex === -1) {
+        throw new Error('Product not found in cart');
+    }
+    
+    // Update the quantity
+    this.cart[cartItemIndex].quantity = newQuantity;
+    await this.save();
+    return this.cart[cartItemIndex];
+};
+
 // Clear cart method (after order created)
 userSchema.methods.clearCart = async function () {
     this.cart = [];
