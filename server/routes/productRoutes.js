@@ -5,11 +5,13 @@ const {
     getProductsBySeller,
     getProductById,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    getAllProducts
 } = require('../controller/productController');
-
+router.get('/',getAllProducts);
 // Create a new product
 router.post('/', createProduct);
+
 
 // Get all products by seller ID
 router.get('/seller/:sellerId', getProductsBySeller);

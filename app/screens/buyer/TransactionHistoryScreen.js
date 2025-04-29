@@ -1,8 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
+import {SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Alert} from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
-import { useState } from "react";
+import {useEffect, useState} from "react";
 import Header from "../../components/Header";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 // Transaction Item Component
 const TransactionItem = ({ transaction }) => {
@@ -85,124 +87,87 @@ const FilterButton = ({ title, active, onPress }) => (
 
 export default function TransactionHistoryScreen({ navigation }) {
     const [activeFilter, setActiveFilter] = useState('All');
+    const [transactions, setTransactions] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    // Sample transaction data
-    const [transactions, setTransactions] = useState([
-        {
-            id: '1',
-            title: 'Organic Vegetables Bundle',
-            amount: '32.50',
-            date: 'Apr 24, 2025',
-            status: 'Completed',
-            type: 'purchase',
-            product: {
-                name: 'Organic Vegetables Bundle',
-                image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=500&auto=format&fit=crop&q=60',
-                quantity: 1
+    // Transform order data into transaction format
+    const transformOrdersToTransactions = (orders) => {
+        return orders.flatMap(order => {
+            // Create a transaction for each order item
+            return order.orderItems.map(item => {
+                const product = item.product;
+                
+                // Format the date
+                const orderDate = new Date(order.createdAt);
+                const formattedDate = `${orderDate.toLocaleDateString()} at ${orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                
+                // Determine transaction type based on order status
+                let type = 'purchase';
+                if (order.orderStatus === 'Cancelled') {
+                    type = 'canceled';
+                } else if (order.orderStatus === 'Refunded') {
+                    type = 'refund';
+                }
+                
+                // Create transaction object
+                return {
+                    id: order._id + '-' + product._id,
+                    title: product.title,
+                    amount: item.price,
+                    date: formattedDate,
+                    status: order.orderStatus,
+                    type: type,
+                    product: {
+                        name: product.title,
+                        image: product.mainImage,
+                        quantity: item.quantity
+                    }
+                };
+            });
+        });
+    };
+
+    useEffect(() => {
+        const fetchTransactions = async () => {
+            try {
+                setLoading(true);
+                const userData = await AsyncStorage.getItem('userData');
+                if (!userData){
+                    Alert.alert('Error','User Data is not found. Please log in again');
+                    return;
+                }
+                const parsedUserData = JSON.parse(userData);
+                const userId = parsedUserData.userId;
+
+                const response = await axios.get(`http://192.168.8.151:5000/api/orders/${userId}/transactions`);
+                
+                // Transform order data into transaction format
+                const transformedTransactions = transformOrdersToTransactions(response.data);
+                setTransactions(transformedTransactions);
+            } catch (error) {
+                console.log('Failed to fetch transaction:', error);
+                Alert.alert('Error', 'Failed to load transactions');
+            } finally {
+                setLoading(false);
             }
-        },
-        {
-            id: '2',
-            title: 'Farm Fresh Eggs (Dozen)',
-            amount: '8.99',
-            date: 'Apr 20, 2025',
-            status: 'Completed',
-            type: 'purchase',
-            product: {
-                name: 'Farm Fresh Eggs (Dozen)',
-                image: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?w=500&auto=format&fit=crop&q=60',
-                quantity: 2
-            }
-        },
-        {
-            id: '3',
-            title: 'Artisanal Cheese Selection',
-            amount: '24.75',
-            date: 'Apr 15, 2025',
-            status: 'Refunded',
-            type: 'refund',
-            product: {
-                name: 'Artisanal Cheese Selection',
-                image: 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=500&auto=format&fit=crop&q=60',
-                quantity: 1
-            }
-        },
-        {
-            id: '4',
-            title: 'Grass-Fed Organic Beef',
-            amount: '45.00',
-            date: 'Apr 10, 2025',
-            status: 'Processing',
-            type: 'purchase',
-            product: {
-                name: 'Grass-Fed Organic Beef (1kg)',
-                image: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=500&auto=format&fit=crop&q=60',
-                quantity: 1
-            }
-        },
-        {
-            id: '5',
-            title: 'Seasonal Fruit Basket',
-            amount: '28.50',
-            date: 'Apr 5, 2025',
-            status: 'Canceled',
-            type: 'canceled',
-            product: {
-                name: 'Seasonal Fruit Basket',
-                image: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500&auto=format&fit=crop&q=60',
-                quantity: 1
-            }
-        },
-        {
-            id: '6',
-            title: 'Organic Honey Jar',
-            amount: '12.99',
-            date: 'Mar 28, 2025',
-            status: 'Completed',
-            type: 'purchase',
-            product: {
-                name: 'Organic Honey Jar (500ml)',
-                image: 'https://images.unsplash.com/photo-1587049352851-8d4e89133924?w=500&auto=format&fit=crop&q=60',
-                quantity: 3
-            }
-        },
-    ]);
+        };
+        
+        fetchTransactions();
+    }, []);
+
+    // Filter transactions based on activeFilter
+    const filteredTransactions = transactions.filter(transaction => {
+        if (activeFilter === 'All') return true;
+        if (activeFilter === 'Purchases' && transaction.type === 'purchase') return true;
+        if (activeFilter === 'Refunds' && transaction.type === 'refund') return true;
+        if (activeFilter === 'Canceled' && transaction.type === 'canceled') return true;
+        return false;
+    });
 
     const handleBackPress = () => {
         navigation.goBack();
     };
-
-    const filterTransactions = (filter) => {
-        setActiveFilter(filter);
-        // You would typically filter your transactions here based on the selected filter
-        // This is just a placeholder for now
-    };
-
-    // Get filtered transactions based on active filter
-    const getFilteredTransactions = () => {
-        if (activeFilter === 'All') return transactions;
-
-        if (activeFilter === 'Completed') {
-            return transactions.filter(t => t.status === 'Completed');
-        }
-
-        if (activeFilter === 'Processing') {
-            return transactions.filter(t => t.status === 'Processing');
-        }
-
-        if (activeFilter === 'Refunded') {
-            return transactions.filter(t => t.type === 'refund');
-        }
-
-        if (activeFilter === 'Canceled') {
-            return transactions.filter(t => t.status === 'Canceled');
-        }
-
-        return transactions;
-    };
-
-    const filteredTransactions = getFilteredTransactions();
-
+    
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -214,37 +179,32 @@ export default function TransactionHistoryScreen({ navigation }) {
                 onBackPress={handleBackPress}
             />
 
-            {/* Filter Tabs */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
+            {/* Filter buttons */}
+            <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
                 style={styles.filterContainer}
                 contentContainerStyle={styles.filterContent}
             >
-                <FilterButton
-                    title="All"
-                    active={activeFilter === 'All'}
-                    onPress={() => filterTransactions('All')}
+                <FilterButton 
+                    title="All" 
+                    active={activeFilter === 'All'} 
+                    onPress={() => setActiveFilter('All')} 
                 />
-                <FilterButton
-                    title="Completed"
-                    active={activeFilter === 'Completed'}
-                    onPress={() => filterTransactions('Completed')}
+                <FilterButton 
+                    title="Purchases" 
+                    active={activeFilter === 'Purchases'} 
+                    onPress={() => setActiveFilter('Purchases')} 
                 />
-                <FilterButton
-                    title="Processing"
-                    active={activeFilter === 'Processing'}
-                    onPress={() => filterTransactions('Processing')}
+                <FilterButton 
+                    title="Refunds" 
+                    active={activeFilter === 'Refunds'} 
+                    onPress={() => setActiveFilter('Refunds')} 
                 />
-                <FilterButton
-                    title="Refunded"
-                    active={activeFilter === 'Refunded'}
-                    onPress={() => filterTransactions('Refunded')}
-                />
-                <FilterButton
-                    title="Canceled"
-                    active={activeFilter === 'Canceled'}
-                    onPress={() => filterTransactions('Canceled')}
+                <FilterButton 
+                    title="Canceled" 
+                    active={activeFilter === 'Canceled'} 
+                    onPress={() => setActiveFilter('Canceled')} 
                 />
             </ScrollView>
 
@@ -254,7 +214,11 @@ export default function TransactionHistoryScreen({ navigation }) {
                 contentContainerStyle={styles.transactionContent}
                 showsVerticalScrollIndicator={false}
             >
-                {filteredTransactions.length > 0 ? (
+                {loading ? (
+                    <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>Loading transactions...</Text>
+                    </View>
+                ) : filteredTransactions.length > 0 ? (
                     filteredTransactions.map(transaction => (
                         <TransactionItem key={transaction.id} transaction={transaction} />
                     ))
@@ -289,6 +253,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         alignItems: 'center',
+        flexDirection: 'row',
     },
     filterButton: {
         paddingHorizontal: 16,

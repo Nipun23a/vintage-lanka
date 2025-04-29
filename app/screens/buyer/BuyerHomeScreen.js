@@ -1,9 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image, ActivityIndicator } from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
 import { useFonts } from 'expo-font';
-import {useNavigation} from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 
+// API config
+const API_URL = 'http://192.168.8.151:5000/api/products';
 
 const Header = () => {
     const navigation = useNavigation();
@@ -95,19 +99,42 @@ const SectionTitle = ({ title }) => {
     );
 };
 
-
-
 // Product Item Component
-const ProductItem = ({ imageUri }) => {
+const ProductItem = ({ product }) => {
+    const navigation = useNavigation();
+    
+    // Handle product press - navigate to product details
+    const handleProductPress = () => {
+        navigation.navigate('ProductDetails', { productId: product._id });
+    };
+    
     return (
-        <TouchableOpacity style={styles.productItem}>
+        <TouchableOpacity style={styles.productItem} onPress={handleProductPress}>
             <Image
-                source={{ uri: imageUri }}
+                source={{ uri: product.mainImage }}
                 style={styles.productImage}
+                resizeMode="cover"
             />
             <View style={styles.productInfo}>
-                <Text style={styles.productName}>Vintage Item</Text>
-                <Text style={styles.productPrice}>$125.00</Text>
+                <Text style={styles.productName} numberOfLines={1}>{product.title}</Text>
+                <View style={styles.priceContainer}>
+                    {product.discountPrice ? (
+                        <>
+                            <Text style={styles.productDiscountPrice}>${product.discountPrice}</Text>
+                            <Text style={styles.productOriginalPrice}>${product.price}</Text>
+                        </>
+                    ) : (
+                        <Text style={styles.productPrice}>${product.price}</Text>
+                    )}
+                </View>
+                <View style={styles.ratingContainer}>
+                    <FontAwesome name="star" size={12} color="#FFD700" />
+                    <Text style={styles.ratingText}>
+                        {product.reviews && product.reviews.length > 0 
+                            ? (product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length).toFixed(1)
+                            : "New"}
+                    </Text>
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -115,23 +142,120 @@ const ProductItem = ({ imageUri }) => {
 
 // Product Grid Component
 const ProductGrid = () => {
-    const products = [
-        'https://images.unsplash.com/photo-1630012974522-7e683def2ae5?q=80&w=2127&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1679973957366-2f926a250629?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1656870916547-9e6a8a17f6e7?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1601854266103-c1dd42130633?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    ];
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        // Fetch products from API
+        const fetchProducts = async () => {
+            try {
+                const response = await axios.get(API_URL);
+                setProducts(response.data.products);
+                setLoading(false);
+            } catch (err) {
+                console.error('Error fetching products:', err);
+                setError('Failed to load products. Please try again later.');
+                setLoading(false);
+            }
+        };
+
+        fetchProducts();
+    }, []);
+
+    if (loading) {
+        return (
+            <View style={styles.loaderContainer}>
+                <ActivityIndicator size="large" color="#000" />
+                <Text style={styles.loaderText}>Loading products...</Text>
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={() => {
+                    setLoading(true);
+                    setError(null);
+                    fetchProducts();
+                }}>
+                    <Text style={styles.retryButtonText}>Try Again</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.productGrid}>
-            {products.map((uri, index) => (
-                <ProductItem key={index} imageUri={uri} />
+            {products.map((product) => (
+                <ProductItem key={product._id} product={product} />
             ))}
         </View>
     );
 };
 
 export default function BuyerHomeScreen() {
+    const [productsData, setProductsData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        // Fetch all products for different sections
+        const fetchProducts = async () => {
+            try {
+                const response = await axios.get(API_URL);
+                setProductsData(response.data.products);
+                setLoading(false);
+            } catch (err) {
+                console.error('Error fetching products:', err);
+                setError('Failed to load products');
+                setLoading(false);
+            }
+        };
+
+        fetchProducts();
+    }, []);
+
+    // Render different sections based on products
+    const renderProductSections = () => {
+        if (loading) {
+            return (
+                <View style={styles.loaderContainer}>
+                    <ActivityIndicator size="large" color="#000" />
+                    <Text style={styles.loaderText}>Loading products...</Text>
+                </View>
+            );
+        }
+
+        if (error) {
+            return (
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
+                </View>
+            );
+        }
+
+        return (
+            <>
+                <SectionTitle title="New Arrivals" />
+                <View style={styles.productGrid}>
+                    {productsData.slice(0, 2).map((product) => (
+                        <ProductItem key={product._id} product={product} />
+                    ))}
+                </View>
+
+                <SectionTitle title="Featured Items" />
+                <View style={styles.productGrid}>
+                    {productsData.map((product) => (
+                        <ProductItem key={product._id} product={product} />
+                    ))}
+                </View>
+            </>
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -140,16 +264,7 @@ export default function BuyerHomeScreen() {
                 <HeroBanner />
                 <FeaturedBanners />
                 <CategoryBanners />
-
-                <SectionTitle title="New Arrival" />
-                <ProductGrid />
-
-                <SectionTitle title="Featured Items" />
-                <ProductGrid />
-
-                <SectionTitle title="Popular Collections" />
-                <ProductGrid />
-
+                {renderProductSections()}
                 <View style={styles.footer} />
             </ScrollView>
         </SafeAreaView>
@@ -165,7 +280,7 @@ const styles = StyleSheet.create({
     header: {
         paddingHorizontal: 16,
         paddingTop: 20,
-        marginTop:10,
+        marginTop: 10,
         paddingBottom: 8,
     },
     headerContent: {
@@ -214,6 +329,7 @@ const styles = StyleSheet.create({
         marginVertical: 12,
         padding: 16,
         borderRadius: 12,
+        backgroundColor: '#f9f9f9',
     },
     bannerText: {
         fontSize: 28,
@@ -271,27 +387,39 @@ const styles = StyleSheet.create({
         color: '#333',
         fontFamily: 'Montserrat_Bold',
     },
-    categorySelectorContainer: {
-        paddingHorizontal: 12,
-        marginBottom: 16,
+    loaderContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
     },
-    categoryButton: {
-        paddingHorizontal: 20,
-        paddingVertical: 8,
-        marginHorizontal: 4,
-        borderRadius: 20,
-        backgroundColor: '#f5f5f5',
-    },
-    categoryButtonActive: {
-        backgroundColor: '#000',
-    },
-    categoryButtonText: {
-        fontSize: 14,
-        color: '#333',
+    loaderText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#666',
         fontFamily: 'Montserrat_Regular',
     },
-    categoryButtonTextActive: {
+    errorContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    errorText: {
+        fontSize: 16,
+        color: '#e74c3c',
+        textAlign: 'center',
+        fontFamily: 'Montserrat_Regular',
+    },
+    retryButton: {
+        marginTop: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        backgroundColor: '#000',
+        borderRadius: 6,
+    },
+    retryButtonText: {
         color: '#fff',
+        fontSize: 14,
+        fontFamily: 'Montserrat_Bold',
     },
     productGrid: {
         flexDirection: 'row',
@@ -324,10 +452,37 @@ const styles = StyleSheet.create({
         marginBottom: 4,
         fontFamily: 'Montserrat_SemiBold',
     },
+    priceContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
     productPrice: {
         fontSize: 14,
         color: '#e74c3c',
         fontFamily: 'Montserrat_Bold',
+    },
+    productDiscountPrice: {
+        fontSize: 14,
+        color: '#e74c3c',
+        fontFamily: 'Montserrat_Bold',
+        marginRight: 6,
+    },
+    productOriginalPrice: {
+        fontSize: 12,
+        color: '#999',
+        textDecorationLine: 'line-through',
+        fontFamily: 'Montserrat_Regular',
+    },
+    ratingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    ratingText: {
+        fontSize: 12,
+        color: '#666',
+        marginLeft: 4,
+        fontFamily: 'Montserrat_Regular',
     },
     footer: {
         height: 20,

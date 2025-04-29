@@ -8,7 +8,7 @@ const {
     deleteUser,
     addToCart,
     clearCart,
-    getCart, updatePassword, addFavourite, getFavourite
+    getCart, updatePassword, addFavourite, getFavourite,removeFavourite
 } = require('../controller/userController');
 
 // Register a new user
@@ -43,6 +43,8 @@ router.get('/:userId/favourites',getFavourite);
 
 // Route for adding product to favourites
 router.post('/:userId/favourites/:productId', addFavourite);
+
+router.delete('/:userId/favourites/:productId', removeFavourite);
 
 
 module.exports = router;

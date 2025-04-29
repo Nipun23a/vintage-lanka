@@ -1,18 +1,22 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Image, TouchableOpacity, Dimensions } from 'react-native';
+import { useEffect, useState } from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View, Image, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from "../../components/Header";
 
-
-
 // Image Gallery Component
-const ImageGallery = () => {
-    const images = [
-        'https://images.unsplash.com/photo-1630012974522-7e683def2ae5?q=80&w=2127&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1656870916547-9e6a8a17f6e7?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1601854266103-c1dd42130633?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    ];
+const ImageGallery = ({ images = [] }) => {
+    const [activeIndex, setActiveIndex] = useState(0);
+    
+    const handleScroll = (event) => {
+        const slideWidth = event.nativeEvent.layoutMeasurement.width;
+        const offset = event.nativeEvent.contentOffset.x;
+        const index = Math.floor(offset / slideWidth);
+        setActiveIndex(index);
+    };
 
     return (
         <View style={styles.imageGalleryContainer}>
@@ -21,22 +25,31 @@ const ImageGallery = () => {
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 style={styles.imageGallery}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
             >
-                {images.map((uri, index) => (
-                    <Image
-                        key={index}
-                        source={{ uri }}
-                        style={styles.productImage}
-                    />
-                ))}
+                {images.length > 0 ? (
+                    images.map((uri, index) => (
+                        <Image
+                            key={index}
+                            source={{ uri }}
+                            style={styles.productImage}
+                        />
+                    ))
+                ) : (
+                    <View style={[styles.productImage, styles.noImageContainer]}>
+                        <FontAwesome name="image" size={64} color="#ccc" />
+                        <Text style={styles.noImageText}>No image available</Text>
+                    </View>
+                )}
             </ScrollView>
             <View style={styles.imageDots}>
-                {images.map((_, index) => (
+                {images.length > 0 && images.map((_, index) => (
                     <View
                         key={index}
                         style={[
                             styles.imageDot,
-                            index === 0 ? styles.imageDotActive : {}
+                            activeIndex === index ? styles.imageDotActive : {}
                         ]}
                     />
                 ))}
@@ -46,96 +59,174 @@ const ImageGallery = () => {
 };
 
 // Product Info Component
-const ProductInfo = () => {
+const ProductInfo = ({ title, price, discountPrice, seller, productId, isFavorite, onToggleFavorite }) => {
     return (
         <View style={styles.productInfoContainer}>
             <View style={styles.productTitleRow}>
-                <Text style={styles.productTitle}>Vintage Typewriter 1950s</Text>
-                <Text style={styles.productPrice}>$225.00</Text>
-            </View>
-
-            <View style={styles.sellerContainer}>
-                <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3' }}
-                    style={styles.sellerImage}
-                />
-                <View style={styles.sellerInfo}>
-                    <Text style={styles.sellerName}>Sarah Johnson</Text>
-                    <View style={styles.ratingContainer}>
-                        <FontAwesome name="star" size={16} color="#FFD700" />
-                        <FontAwesome name="star" size={16} color="#FFD700" />
-                        <FontAwesome name="star" size={16} color="#FFD700" />
-                        <FontAwesome name="star" size={16} color="#FFD700" />
-                        <FontAwesome name="star-half-o" size={16} color="#FFD700" />
-                        <Text style={styles.ratingText}>(4.5)</Text>
+                <Text style={styles.productTitle}>{title || "Product Title"}</Text>
+                <View style={styles.actionContainer}>
+                    <TouchableOpacity 
+                        style={styles.favoriteButton} 
+                        onPress={onToggleFavorite}
+                    >
+                        <FontAwesome 
+                            name={isFavorite ? "heart" : "heart-o"} 
+                            size={24} 
+                            color={isFavorite ? "#e74c3c" : "#333"} 
+                        />
+                    </TouchableOpacity>
+                    <View style={styles.priceContainer}>
+                        {discountPrice && discountPrice < price ? (
+                            <>
+                                <Text style={styles.originalPrice}>${price?.toFixed(2)}</Text>
+                                <Text style={styles.productPrice}>${discountPrice?.toFixed(2)}</Text>
+                            </>
+                        ) : (
+                            <Text style={styles.productPrice}>${price?.toFixed(2)}</Text>
+                        )}
                     </View>
                 </View>
-                <TouchableOpacity style={styles.contactButton}>
-                    <Text style={styles.contactButtonText}>Contact</Text>
-                </TouchableOpacity>
             </View>
+
+            {seller && (
+                <View style={styles.sellerContainer}>
+                    <Image
+                        source={{ uri: seller.profileImage || 'https://via.placeholder.com/50' }}
+                        style={styles.sellerImage}
+                    />
+                    <View style={styles.sellerInfo}>
+                        <Text style={styles.sellerName}>{seller.name || "Seller"}</Text>
+                        <View style={styles.ratingContainer}>
+                            <FontAwesome name="star" size={16} color="#FFD700" />
+                            <FontAwesome name="star" size={16} color="#FFD700" />
+                            <FontAwesome name="star" size={16} color="#FFD700" />
+                            <FontAwesome name="star" size={16} color="#FFD700" />
+                            <FontAwesome name="star-half-o" size={16} color="#FFD700" />
+                            <Text style={styles.ratingText}>({seller.rating || "4.5"})</Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity style={styles.contactButton}>
+                        <Text style={styles.contactButtonText}>Contact</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
     );
 };
 
 // Product Details Component
-const ProductDetails = () => {
+const ProductDetails = ({ category, description, quantity }) => {
     return (
         <View style={styles.detailsContainer}>
             <Text style={styles.sectionTitle}>Product Details</Text>
 
             <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Condition</Text>
-                <Text style={styles.detailValue}>Very Good</Text>
-            </View>
-
-            <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Brand</Text>
-                <Text style={styles.detailValue}>Royal</Text>
-            </View>
-
-            <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Year</Text>
-                <Text style={styles.detailValue}>1957</Text>
-            </View>
-
-            <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Category</Text>
-                <Text style={styles.detailValue}>Collectibles</Text>
+                <Text style={styles.detailValue}>{category?.name || "Uncategorized"}</Text>
             </View>
 
             <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>Colombo, Sri Lanka</Text>
+                <Text style={styles.detailLabel}>Quantity</Text>
+                <Text style={styles.detailValue}>{quantity || 0} in stock</Text>
             </View>
 
             <Text style={styles.sectionTitle}>Description</Text>
             <Text style={styles.description}>
-                Beautiful vintage Royal typewriter from the 1950s. This rare collectors' piece is in excellent working condition and comes with the original case. The keys are responsive, and the ribbon has been recently replaced. Perfect for collectors, writers, or as a decorative piece in your home or office.
+                {description || "No description available"}
             </Text>
         </View>
     );
 };
 
 // Similar Products Component
-const SimilarProducts = () => {
-    const products = [
-        'https://images.unsplash.com/reserve/LJIZlzHgQ7WPSh5KVTCB_Typewriter.jpg?q=80&w=1992&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1603706580932-6befcf7d8044?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3',
-        'https://images.unsplash.com/photo-1585155784229-aff921ccfa10?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3',
-    ];
+const SimilarProducts = ({ currentProductId, categoryId }) => {
+    const [similarProducts, setSimilarProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const navigation = useNavigation();
+
+    useEffect(() => {
+        const fetchSimilarProducts = async () => {
+            if (!categoryId) {
+                setLoading(false);
+                return;
+            }
+            
+            try {
+                setLoading(true);
+                const response = await axios.get('http://192.168.8.151:5000/api/products');
+                
+                if (response.data && response.data.products) {
+                    // Filter products by the same category and exclude current product
+                    const filtered = response.data.products.filter(
+                        product => product._id !== currentProductId && 
+                        product.category && 
+                        product.category._id === categoryId
+                    );
+                    
+                    // If no products in same category, just get some other products
+                    if (filtered.length === 0) {
+                        const otherProducts = response.data.products
+                            .filter(product => product._id !== currentProductId)
+                            .slice(0, 5);
+                        setSimilarProducts(otherProducts);
+                    } else {
+                        setSimilarProducts(filtered.slice(0, 5)); // Limit to 5 similar products
+                    }
+                }
+                setLoading(false);
+            } catch (error) {
+                console.error('Error fetching similar products:', error);
+                setLoading(false);
+            }
+        };
+
+        fetchSimilarProducts();
+    }, [currentProductId, categoryId]);
+
+    if (loading) {
+        return (
+            <View style={styles.similarProductsContainer}>
+                <Text style={styles.sectionTitle}>Similar Products</Text>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#e74c3c" />
+                </View>
+            </View>
+        );
+    }
+
+    if (similarProducts.length === 0) {
+        return null; // Don't show the section if no similar products
+    }
 
     return (
         <View style={styles.similarProductsContainer}>
             <Text style={styles.sectionTitle}>Similar Products</Text>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {products.map((uri, index) => (
-                    <TouchableOpacity key={index} style={styles.similarProductItem}>
-                        <Image source={{ uri }} style={styles.similarProductImage} />
+                {similarProducts.map((product) => (
+                    <TouchableOpacity 
+                        key={product._id} 
+                        style={styles.similarProductItem}
+                        onPress={() => navigation.replace('ProductDetails', { productId: product._id })}
+                    >
+                        <Image 
+                            source={{ uri: product.mainImage || (product.images && product.images.length > 0 ? product.images[0] : 'https://via.placeholder.com/180x140') }} 
+                            style={styles.similarProductImage} 
+                        />
                         <View style={styles.similarProductInfo}>
-                            <Text style={styles.similarProductName}>Vintage Item</Text>
-                            <Text style={styles.similarProductPrice}>$195.00</Text>
+                            <Text style={styles.similarProductName} numberOfLines={1}>
+                                {product.title}
+                            </Text>
+                            <View style={styles.similarProductPriceContainer}>
+                                {product.discountPrice && product.discountPrice < product.price ? (
+                                    <>
+                                        <Text style={styles.similarProductOriginalPrice}>${product.price.toFixed(2)}</Text>
+                                        <Text style={styles.similarProductPrice}>${product.discountPrice.toFixed(2)}</Text>
+                                    </>
+                                ) : (
+                                    <Text style={styles.similarProductPrice}>${product.price.toFixed(2)}</Text>
+                                )}
+                            </View>
                         </View>
                     </TouchableOpacity>
                 ))}
@@ -145,16 +236,22 @@ const SimilarProducts = () => {
 };
 
 // Bottom Action Bar Component
-const BottomActionBar = () => {
+const BottomActionBar = ({ quantity }) => {
     return (
         <View style={styles.bottomBar}>
             <View style={styles.bottomBarContent}>
-                <TouchableOpacity style={styles.cartButton}>
+                <TouchableOpacity 
+                    style={[styles.cartButton, quantity <= 0 && styles.disabledButton]}
+                    disabled={quantity <= 0}
+                >
                     <FontAwesome name="shopping-cart" size={20} color="white" />
                     <Text style={styles.buttonText}>Add to Cart</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.buyNowButton}>
+                <TouchableOpacity 
+                    style={[styles.buyNowButton, quantity <= 0 && styles.disabledButton]}
+                    disabled={quantity <= 0}
+                >
                     <Text style={styles.buttonText}>Buy Now</Text>
                 </TouchableOpacity>
             </View>
@@ -164,6 +261,159 @@ const BottomActionBar = () => {
 
 export default function ProductDetailScreen() {
     const navigation = useNavigation();
+    const route = useRoute();
+    const [product, setProduct] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [userId, setUserId] = useState(null);
+    const [isFavorite, setIsFavorite] = useState(false);
+    const [userFavorites, setUserFavorites] = useState([]);
+
+    const { productId } = route.params || {};
+
+    useEffect(() => {
+        const getUserData = async () => {
+            try {
+                const userDataString = await AsyncStorage.getItem('userData');
+                if (userDataString) {
+                    const userData = JSON.parse(userDataString);
+                    setUserId(userData.userId);
+                    
+                    // Parse favorites array from AsyncStorage
+                    if (userData.userFavourites) {
+                        const favorites = JSON.parse(userData.userFavourites);
+                        setUserFavorites(favorites);
+                        
+                        // Check if current product is in favorites
+                        if (productId && favorites.some(fav => fav._id === productId || fav === productId)) {
+                            setIsFavorite(true);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error retrieving user data:', error);
+            }
+        };
+
+        getUserData();
+    }, [productId]);
+
+    useEffect(() => {
+        const fetchProductData = async () => {
+            try {
+                setLoading(true);
+                // Use your actual API endpoint here
+                const response = await axios.get(`http://192.168.8.151:5000/api/products/${productId}`);
+                setProduct(response.data);
+                setLoading(false);
+            } catch (err) {
+                console.error('Error fetching product data:', err);
+                setError('Could not load product details');
+                setLoading(false);
+            }
+        };
+
+        if (productId) {
+            fetchProductData();
+        } else {
+            setError('No product ID provided');
+            setLoading(false);
+        }
+    }, [productId]);
+
+    const handleToggleFavorite = async () => {
+        if (!userId) {
+            Alert.alert('Login Required', 'Please login to add items to favorites');
+            return;
+        }
+    
+        try {
+            let response;
+            const newFavoriteState = !isFavorite;
+    
+            if (newFavoriteState) {
+                // Add to favorites (POST request)
+                response = await axios.post(`http://192.168.8.151:5000/api/users/${userId}/favourites/${productId}`);
+            } else {
+                // Remove from favorites (DELETE request)
+                response = await axios.delete(`http://192.168.8.151:5000/api/users/${userId}/favourites/${productId}`);
+            }
+    
+            if (response.status === 200) {
+                setIsFavorite(newFavoriteState);
+    
+                let updatedFavorites = [...userFavorites];
+    
+                if (newFavoriteState) {
+                    // Add product
+                    if (!updatedFavorites.some(fav => fav._id === productId || fav === productId)) {
+                        updatedFavorites.push(productId);
+                    }
+                } else {
+                    // Remove product
+                    updatedFavorites = updatedFavorites.filter(fav =>
+                        (fav._id !== productId) && (fav !== productId)
+                    );
+                }
+    
+                setUserFavorites(updatedFavorites);
+    
+                const userDataString = await AsyncStorage.getItem('userData');
+                if (userDataString) {
+                    const userData = JSON.parse(userDataString);
+                    userData.userFavourites = JSON.stringify(updatedFavorites);
+                    await AsyncStorage.setItem('userData', JSON.stringify(userData));
+                }
+    
+                Alert.alert(
+                    newFavoriteState ? 'Added to Favorites' : 'Removed from Favorites',
+                    newFavoriteState ? 'Product added to your favorites' : 'Product removed from your favorites'
+                );
+            }
+        } catch (error) {
+            console.error('Error toggling favorite status:', error);
+            Alert.alert('Error', 'Failed to update favorites. Please try again.');
+        }
+    };
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.loadingContainer}>
+                <Header
+                    title="Product Details"
+                    showBackButton={true}
+                    onBackPress={() => navigation.goBack()}
+                />
+                <ActivityIndicator size="large" color="#e74c3c" />
+                <Text style={styles.loadingText}>Loading product details...</Text>
+            </SafeAreaView>
+        );
+    }
+
+    if (error) {
+        return (
+            <SafeAreaView style={styles.errorContainer}>
+                <Header
+                    title="Product Details"
+                    showBackButton={true}
+                    onBackPress={() => navigation.goBack()}
+                />
+                <FontAwesome name="exclamation-circle" size={64} color="#e74c3c" />
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+                    <Text style={styles.retryButtonText}>Go Back</Text>
+                </TouchableOpacity>
+            </SafeAreaView>
+        );
+    }
+
+    // Prepare images array, ensuring mainImage is first
+    const productImages = product ? 
+        product.images ? 
+            (product.images.length > 0 ? product.images : 
+                (product.mainImage ? [product.mainImage] : [])) : 
+            (product.mainImage ? [product.mainImage] : []) : 
+        [];
 
     return (
         <SafeAreaView style={styles.container}>
@@ -174,15 +424,34 @@ export default function ProductDetailScreen() {
                 onBackPress={() => navigation.goBack()}
             />
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <ImageGallery />
-                <ProductInfo />
-                <ProductDetails />
-                <SimilarProducts />
-                <View style={styles.footer} />
-            </ScrollView>
+            {product && (
+                <>
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        <ImageGallery images={productImages} />
+                        <ProductInfo 
+                            title={product.title} 
+                            price={product.price} 
+                            discountPrice={product.discountPrice}
+                            seller={product.seller}
+                            productId={product._id}
+                            isFavorite={isFavorite}
+                            onToggleFavorite={handleToggleFavorite}
+                        />
+                        <ProductDetails 
+                            category={product.category} 
+                            description={product.description}
+                            quantity={product.quantity}
+                        />
+                        <SimilarProducts 
+                            currentProductId={product._id}
+                            categoryId={product.category?._id}
+                        />
+                        <View style={styles.footer} />
+                    </ScrollView>
 
-            <BottomActionBar />
+                    <BottomActionBar quantity={product.quantity} />
+                </>
+            )}
         </SafeAreaView>
     );
 }
@@ -194,6 +463,44 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
         paddingTop: 15,
+    },
+    loadingContainer: {
+        flex: 1,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 16,
+        fontSize: 16,
+        fontFamily: 'Montserrat_SemiBold',
+        color: '#333',
+    },
+    errorContainer: {
+        flex: 1,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    errorText: {
+        marginTop: 16,
+        fontSize: 18,
+        fontFamily: 'Montserrat_SemiBold',
+        color: '#333',
+        textAlign: 'center',
+    },
+    retryButton: {
+        marginTop: 24,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        backgroundColor: '#e74c3c',
+        borderRadius: 25,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: 'Montserrat_Bold',
     },
     imageGalleryContainer: {
         height: 300,
@@ -207,6 +514,17 @@ const styles = StyleSheet.create({
         width: windowWidth,
         height: 300,
         resizeMode: 'cover',
+    },
+    noImageContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+    },
+    noImageText: {
+        marginTop: 16,
+        fontSize: 16,
+        color: '#999',
+        fontFamily: 'Montserrat_SemiBold',
     },
     imageDots: {
         position: 'absolute',
@@ -240,12 +558,30 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontFamily: 'Montserrat_Bold',
         flex: 1,
+        marginRight: 10,
+    },
+    actionContainer: {
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+    },
+    favoriteButton: {
+        padding: 8,
+        marginBottom: 8,
+    },
+    priceContainer: {
+        alignItems: 'flex-end',
     },
     productPrice: {
         fontSize: 22,
         fontFamily: 'Montserrat_Bold',
         color: '#e74c3c',
-        marginLeft: 8,
+    },
+    originalPrice: {
+        fontSize: 16,
+        fontFamily: 'Montserrat_Regular',
+        color: '#999',
+        textDecorationLine: 'line-through',
+        marginBottom: 4,
     },
     sellerContainer: {
         flexDirection: 'row',
@@ -348,10 +684,27 @@ const styles = StyleSheet.create({
         fontFamily: 'Montserrat_SemiBold',
         marginBottom: 4,
     },
+    similarProductPriceContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+    },
     similarProductPrice: {
         fontSize: 14,
         color: '#e74c3c',
         fontFamily: 'Montserrat_Bold',
+    },
+    similarProductOriginalPrice: {
+        fontSize: 12,
+        color: '#999',
+        textDecorationLine: 'line-through',
+        marginRight: 5,
+        fontFamily: 'Montserrat_Regular',
+    },
+    loadingContainer: {
+        height: 150,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     bottomBar: {
         backgroundColor: '#fff',
@@ -381,6 +734,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 14,
         marginLeft: 10,
+    },
+    disabledButton: {
+        backgroundColor: '#ccc',
     },
     buttonText: {
         color: '#fff',

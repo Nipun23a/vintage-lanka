@@ -60,6 +60,25 @@ exports.createProduct = async (req, res) => {
     }
 };
 
+exports.getAllProducts = async (req, res) => {
+    try {
+        const products = await Product.find()
+            .populate('category', 'name') // assuming Category model has a 'name' field
+            .populate('seller', 'username email') // adjust fields as needed
+
+        res.status(200).json({
+            message: 'Products retrieved successfully',
+            products,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: 'Error retrieving products',
+            error: error.message,
+        });
+    }
+};
+
 // Get all products by seller ID
 exports.getProductsBySeller = async (req, res) => {
     try {

@@ -102,7 +102,7 @@ const BuyerNavigator = ({ onLogout }) => {
             <Stack.Screen name="BuyerTabs">
                 {props => <BuyerTabNavigator {...props} onLogout={onLogout} />}
             </Stack.Screen>
-            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+            <Stack.Screen name="ProductDetails" component={ProductDetailScreen} />
             <Stack.Screen name="Cart" component={CartScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, Alert} from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import AuthLayout from "../../layout/AuthLayout";
+import axios from "axios";
 
 
 export default function RegisterScreen({ navigation, route }) {
@@ -11,7 +12,62 @@ export default function RegisterScreen({ navigation, route }) {
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [phoneNumber,setPhoneNumber] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [isLoading,setIsLoading] = useState(false);
+
+    const handleSubmit = async () => {
+        if (!validateForm()) return;
+        try {
+            setIsLoading(true);
+            const addresses  = [];
+
+            const response = await axios.post('http://192.168.8.151:5000/api/users/register',{
+                fullname:fullName,email,password,confirmPassword,phoneNumber,addresses,role:userType
+            });
+            if (response.status === 201){
+                Alert.alert('Success','User Account Created Successfully');
+                navigation.navigate('Login')
+            }
+        }catch (error){
+            if(error.response){
+                Alert.alert(error.response.data.message || 'Error logging in');
+            }else if (error.request){
+                Alert.alert('Network Error','Error Occurred');
+            }else {
+                Alert.alert('Error occurred','Error Occurred');
+            }
+            console.log('Login Failed',error);
+        }
+    }
+
+    const validateForm = () => {
+        if (!fullName || !email || !password || !userType || !phoneNumber) {
+            Alert.alert('Error', "All fields must be filled");
+            return false;
+        }
+        if (password !== confirmPassword) {
+            Alert.alert('Error', 'Passwords do not match');
+            return false;
+        }
+
+        // Email Validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Alert.alert('Error', "Please enter a valid email address");
+            return false;
+        }
+
+        // Phone Number Validation
+        const phoneRegex = /^[0-9]{10}$/; // Assumes 10-digit phone numbers only
+        if (!phoneRegex.test(phoneNumber)) {
+            Alert.alert('Error', "Please enter a valid 10-digit phone number");
+            return false;
+        }
+
+        return true;
+    }
+
 
     return (
         <AuthLayout
@@ -42,6 +98,18 @@ export default function RegisterScreen({ navigation, route }) {
                 />
             </View>
 
+            <View style={styles.inputContainer}>
+                <Text style={styles.label}>Phone Number <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                    style={styles.input}
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    placeholder="Enter your phone number"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                />
+            </View>
+
             {/* Password Input */}
             <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password <Text style={styles.required}>*</Text></Text>
@@ -67,7 +135,7 @@ export default function RegisterScreen({ navigation, route }) {
             </View>
 
             {/* Register Button */}
-            <TouchableOpacity style={styles.registerButton}>
+            <TouchableOpacity style={styles.registerButton} onPress={handleSubmit}>
                 <Text style={styles.registerButtonText}>Create Account</Text>
             </TouchableOpacity>
 

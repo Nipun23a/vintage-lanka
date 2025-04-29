@@ -11,6 +11,8 @@ import {
     Alert
 } from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const PasswordUpdateModal = ({ visible, onClose }) => {
     const [currentPassword, setCurrentPassword] = useState('');
@@ -61,15 +63,41 @@ const PasswordUpdateModal = ({ visible, onClose }) => {
         return isValid;
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
+        // Retrieve user data from AsyncStorage
+        const userData = await AsyncStorage.getItem('userData');
+
+        if (!userData) {
+            Alert.alert("Error", "User data not found. Please log in again.");
+            return;
+        }
+
+        const parsedUserData = JSON.parse(userData);
+        const userId = parsedUserData.userId;  // Get the userId from the saved data
+
         if (validateForm()) {
-            // Here you would connect to your actual authentication service
-            // This is just a simulation of a successful password update
-            Alert.alert(
-                "Success",
-                "Your password has been updated successfully!",
-                [{ text: "OK", onPress: handleClose }]
-            );
+            try {
+                // Send a request to update the password
+                const response = await axios.patch(`http://192.168.8.151:5000/api/users/${userId}/password`, {
+                    oldPassword:currentPassword,
+                    newPassword
+                });
+
+                if (response.status === 200) {
+                    // If password update is successful
+                    Alert.alert(
+                        "Success",
+                        "Your password has been updated successfully!",
+                        [{ text: "OK", onPress: handleClose }]
+                    );
+                }
+            } catch (error) {
+                if (error.response && error.response.data) {
+                    Alert.alert("Error", error.response.data.message || "Failed to update password");
+                } else {
+                    Alert.alert("Error", "Something went wrong. Please try again.");
+                }
+            }
         }
     };
 

@@ -37,6 +37,8 @@ export default function LoginScreen({ navigation, onLogin }) {
                     userPhoneNumber: user.phoneNumber,
                     userAddresses: JSON.stringify(user.addresses),
                     userCart: JSON.stringify(user.cart),
+                    userFavourites:JSON.stringify(user.favourites),
+
                 };
                 await AsyncStorage.setItem('userData', JSON.stringify(userData));
                 if (user.role === 'seller'){
@@ -47,7 +49,7 @@ export default function LoginScreen({ navigation, onLogin }) {
                     return;
                 }
             }else {
-                Alert.alert('Invalid email and password')
+                Alert.alert('Error','Invalid Credentials')
             }
         }catch (error){
             if(error.response){
