@@ -15,7 +15,7 @@ const cartItemSchema = new mongoose.Schema({
     quantity: { type: Number, required: true, min: 1 },
 });
 
-// Define user schema
+// User Schema Update
 const userSchema = new mongoose.Schema({
     fullname: {
         type: String,
@@ -47,10 +47,37 @@ const userSchema = new mongoose.Schema({
         enum: ['admin', 'buyer', 'seller'],
     },
     addresses: [addressSchema],
-    cart: [cartItemSchema], // NEW: User's Cart
+    cart: [cartItemSchema], // User's Cart
+    favourites: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',  // References the Product model
+        required: false,
+    }], // User's Favourites
 }, {
     timestamps: true,
 });
+
+// Add product to favourites method
+userSchema.methods.addToFavourites = async function (productId) {
+    const favouriteIndex = this.favourites.indexOf(productId);
+
+    if (favouriteIndex === -1) {
+        // Product is not in favourites, add it
+        this.favourites.push(productId);
+        await this.save();
+    }
+};
+
+// Remove product from favourites method
+userSchema.methods.removeFromFavourites = async function (productId) {
+    const favouriteIndex = this.favourites.indexOf(productId);
+
+    if (favouriteIndex > -1) {
+        // Product is in favourites, remove it
+        this.favourites.splice(favouriteIndex, 1);
+        await this.save();
+    }
+};
 
 // Hash password before saving user
 userSchema.pre('save', async function (next) {
@@ -97,3 +124,4 @@ userSchema.methods.clearCart = async function () {
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 module.exports = User;
+

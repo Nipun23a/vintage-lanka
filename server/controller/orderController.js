@@ -72,3 +72,24 @@ exports.getOrdersBySeller = async (req, res) => {
         res.status(500).json({ message: 'Error fetching seller orders', error: error.message });
     }
 };
+
+// Get all orders for a specific user
+exports.getOrdersByUser = async (req,res) => {
+    try {
+        const userId = req.params.userId;
+        const orders = await Order.find({ buyer: userId })
+            .populate('orderItems.product')
+            .populate('buyer', 'fullname email')
+            .sort({ createdAt: -1 });
+
+        if (orders.length === 0) {
+            return res.status(404).json({ message: 'No orders found for this user.' });
+        }
+
+        res.status(200).json(orders);
+
+    }catch (error){
+        console.log('Error fetching orders for users:',error);
+        res.status(500).json({message:'Server error while fetching orders'})
+    }
+};

@@ -3,7 +3,7 @@ const router = express.Router();
 const {
     createOrder,
     updateOrderStatus,
-    getOrdersBySeller
+    getOrdersBySeller, getOrdersByUser
 } = require('../controller/orderController');
 
 // Create Order
@@ -13,6 +13,7 @@ router.post('/', createOrder);
 router.patch('/:orderId', updateOrderStatus);
 
 // Get Orders by Seller
-router.get('/seller/:sellerId', getOrdersBySeller);
+router.get('/:sellerId/seller', getOrdersBySeller);
+router.get('/:userId/transactions',getOrdersByUser);
 
 module.exports = router;

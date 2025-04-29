@@ -24,6 +24,7 @@ exports.registerUser = async (req, res) => {
         res.status(201).json({ message: 'User registered successfully', userId: newUser._id });
     } catch (error) {
         res.status(500).json({ message: 'Error registering user', error: error.message });
+        console.log(error.message);
     }
 };
 
@@ -146,3 +147,77 @@ exports.getCart = async (req, res) => {
         res.status(500).json({ message: 'Error fetching cart', error: error.message });
     }
 };
+
+// Updated password function
+exports.updatePassword = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { oldPassword, newPassword } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if the old password is correct
+        const isMatch = await user.comparePassword(oldPassword);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Incorrect old password' });
+        }
+
+        // Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        res.status(200).json({ message: 'Password updated successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating password', error: error.message });
+        console.log(error.message);
+    }
+};
+
+// Add to Favourites function
+exports.addFavourite = async (req, res) => {
+    try {
+        const { userId, productId } = req.params;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Add the product to the favourites if it's not already there
+        if (!user.favourites.includes(productId)) {
+            user.favourites.push(productId);
+            await user.save();
+            res.status(200).json({ message: 'Product added to favourites' });
+        } else {
+            res.status(400).json({ message: 'Product is already in favourites' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Error adding product to favourites', error: error.message });
+    }
+};
+
+
+// Get Favourite function
+exports.getFavourite = async (req,res) => {
+    try {
+        const {userId} = req.params;
+        const user = await User.findById(userId).populate({
+            path:'favourites',
+            select:'title mainImage price',
+        });
+
+        if (!user){
+            return res.status(404).json({message:'User not found'});
+        }
+        res.status(200).json({favourites:user.favourites});
+    }catch (error){
+        console.log('Error fetching favourites :',error);
+        res.status(500).json({message:'Error fetching favourites'})
+    }
+};
+
+
