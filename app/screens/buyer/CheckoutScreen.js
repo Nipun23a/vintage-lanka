@@ -381,7 +381,7 @@ export default function CheckoutScreen({ navigation, route }) {
             console.log('Order processed:', orderData);
             
             // Clear cart (optional)
-            // await axios.post(`http://192.168.8.151:5000/api/users/${userId}/cart/clear`);
+            await axios.delete(`http://192.168.8.151:5000/api/users/${userId}/cart`);
             
         } catch (error) {
             console.error('Error processing order:', error);

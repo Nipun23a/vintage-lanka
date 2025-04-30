@@ -253,24 +253,19 @@ const SimilarProducts = ({ currentProductId, categoryId }) => {
 };
 
 // Bottom Action Bar Component
-const BottomActionBar = ({ quantity }) => {
+const BottomActionBar = ({ quantity,addToCart}) => {
     return (
         <View style={styles.bottomBar}>
             <View style={styles.bottomBarContent}>
                 <TouchableOpacity 
                     style={[styles.cartButton, quantity <= 0 && styles.disabledButton]}
-                    disabled={quantity <= 0}
+                    disabled={quantity <= 0} onPress={addToCart}
                 >
                     <FontAwesome name="shopping-cart" size={20} color="white" />
                     <Text style={styles.buttonText}>Add to Cart</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                    style={[styles.buyNowButton, quantity <= 0 && styles.disabledButton]}
-                    disabled={quantity <= 0}
-                >
-                    <Text style={styles.buttonText}>Buy Now</Text>
-                </TouchableOpacity>
+
             </View>
         </View>
     );
@@ -287,6 +282,9 @@ export default function ProductDetailScreen() {
     const [userFavorites, setUserFavorites] = useState([]);
 
     const { productId } = route.params || {};
+
+
+    
 
     useEffect(() => {
         const getUserData = async () => {
@@ -393,6 +391,20 @@ export default function ProductDetailScreen() {
         }
     };
 
+    const handleAddToCart = async () => {
+        try {
+            const response = await axios.post(`http://192.168.8.151:5000/api/users/${userId}/cart`,{
+                productId
+            });
+            if (response.status === 200){
+                Alert.alert('Success','Product Added Sucessfully')
+            }
+        } catch (error) {
+            console.log('Add to cart error',error);
+            Alert.alert('Error','Failed to add product to cart');
+        }
+    }
+
     if (loading) {
         return (
             <SafeAreaView style={styles.loadingContainer}>
@@ -467,7 +479,7 @@ export default function ProductDetailScreen() {
                         <View style={styles.footer} />
                     </ScrollView>
 
-                    <BottomActionBar quantity={product.quantity} />
+                    <BottomActionBar quantity={product.quantity} addToCart={handleAddToCart} />
                 </>
             )}
         </SafeAreaView>
@@ -736,7 +748,7 @@ const styles = StyleSheet.create({
     },
     cartButton: {
         flex: 1,
-        backgroundColor: '#333',
+        backgroundColor: '#FF0000',
         borderRadius: 25,
         flexDirection: 'row',
         justifyContent: 'center',

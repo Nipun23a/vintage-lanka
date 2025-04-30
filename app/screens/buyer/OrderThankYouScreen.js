@@ -20,8 +20,9 @@ export default function OrderThankYouScreen({ navigation, route }) {
     }, []);
 
     const handleContinueShopping = () => {
-        // Navigate to home screen or product list
-        navigation.navigate('Home');
+        navigation.navigate('BuyerTabs', {
+            screen: 'Home',
+        });
     };
 
     const handleTrackOrder = () => {
