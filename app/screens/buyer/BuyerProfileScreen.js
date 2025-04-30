@@ -16,6 +16,7 @@ import Header from "../../components/Header";
 import {useNavigation} from "@react-navigation/native";
 import PasswordUpdateModal from "../../components/PasswordUpdateModal";
 import PersonalInfoUpdateModal from "../../components/PersonalInfoUpdateModal";
+import AddressManagementModal from "../../components/AddressManementModal"; // Import the AddressManagementModal
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {useUser} from "../../config/useUser";
 import asyncStorage from "@react-native-async-storage/async-storage/src/AsyncStorage";
@@ -75,6 +76,7 @@ export default function BuyerProfileScreen({navigation, onLogout}) {
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [passwordModalVisible, setPasswordModalVisible] = useState(false);
     const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
+    const [addressModalVisible, setAddressModalVisible] = useState(false); // Add state for address modal
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -162,6 +164,11 @@ export default function BuyerProfileScreen({navigation, onLogout}) {
         navigation.navigate('TransactionHistory')
     }
 
+    // Add handler for managing addresses
+    const handleManageAddresses = () => {
+        setAddressModalVisible(true);
+    }
+
     const handleLogout = async () => {
         if (isLoggingOut) return; // Prevent multiple logout attempts
 
@@ -245,6 +252,13 @@ export default function BuyerProfileScreen({navigation, onLogout}) {
                         icon="heart"
                         onPress={() => navigation.navigate('Favorites')}
                     />
+
+                    {/* Add the Manage Addresses option */}
+                    <ProfileSection
+                        title="Manage Addresses"
+                        icon="map-marker"
+                        onPress={handleManageAddresses}
+                    />
                 </View>
 
                 <View style={styles.sectionsContainer}>
@@ -282,6 +296,12 @@ export default function BuyerProfileScreen({navigation, onLogout}) {
                     onSave={handleSavePersonalInfo}
                 />
 
+                {/* Add the AddressManagementModal */}
+                <AddressManagementModal
+                    visible={addressModalVisible}
+                    onClose={() => setAddressModalVisible(false)}
+                />
+
             </ScrollView>
         </SafeAreaView>
     );
@@ -292,6 +312,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
         paddingTop: 15,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
     },
     header: {
         paddingHorizontal: 16,

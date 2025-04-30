@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
@@ -10,77 +10,73 @@ import {
     Image,
     Modal,
     TextInput,
-    FlatList
+    FlatList,
+    ActivityIndicator,
+    Alert
 } from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { useNavigation } from '@react-navigation/native';
 
 export default function SellerProductsScreen() {
     const [modalVisible, setModalVisible] = useState(false);
     const [filterActive, setFilterActive] = useState('All');
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    // Sample product data
-    const products = [
-        {
-            id: '1',
-            title: 'Vintage Record Player',
-            price: '175.00',
-            status: 'Active',
-            image: 'https://images.unsplash.com/photo-1656870916547-9e6a8a17f6e7?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            views: 45,
-            likes: 12,
-            date: '15 Apr 2025'
-        },
-        {
-            id: '2',
-            title: 'Antique Wooden Clock',
-            price: '225.00',
-            status: 'Sold',
-            image: 'https://images.unsplash.com/photo-1679973957366-2f926a250629?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            views: 89,
-            likes: 23,
-            date: '10 Apr 2025'
-        },
-        {
-            id: '3',
-            title: 'Vintage Camera',
-            price: '125.00',
-            status: 'Draft',
-            image: 'https://images.unsplash.com/photo-1601854266103-c1dd42130633?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            views: 0,
-            likes: 0,
-            date: '18 Apr 2025'
-        },
-        {
-            id: '4',
-            title: 'Vintage Radio',
-            price: '145.00',
-            status: 'Active',
-            image: 'https://images.unsplash.com/photo-1630012974522-7e683def2ae5?q=80&w=2127&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            views: 28,
-            likes: 7,
-            date: '20 Apr 2025'
-        },
-        {
-            id: '5',
-            title: 'Classic Typewriter',
-            price: '195.00',
-            status: 'Active',
-            image: 'https://images.unsplash.com/reserve/LJIZlzHgQ7WPSh5KVTCB_Typewriter.jpg?q=80&w=1992&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            views: 34,
-            likes: 9,
-            date: '12 Apr 2025'
-        },
-        {
-            id: '6',
-            title: 'Vintage Pocket Watch',
-            price: '85.00',
-            status: 'Sold',
-            image: 'https://images.unsplash.com/photo-1509048191080-d2984bad6ae5?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            views: 56,
-            likes: 15,
-            date: '5 Apr 2025'
-        },
-    ];
+    useEffect(() => {
+        fetchProducts();
+    }, []);
+
+    const fetchProducts = async () => {
+        try {
+            setLoading(true);
+            
+            // Get seller ID from AsyncStorage
+            const userDataString = await AsyncStorage.getItem('userData');
+            if (!userDataString) {
+                throw new Error('User data not found');
+            }
+            
+            const userData = JSON.parse(userDataString);
+            const sellerId = userData.userId;
+            
+            // Make API request
+            const response = await axios.get(`http://192.168.8.151:5000/api/products/seller/${sellerId}`);
+            
+            // Transform data to match our component structure
+            const transformedProducts = response.data.map(product => ({
+                id: product._id,
+                title: product.title,
+                price: product.discountPrice ? product.discountPrice.toString() : product.price.toString(),
+                originalPrice: product.price.toString(),
+                status: product.quantity > 0 ? 'Active' : 'Sold Out',
+                image: product.mainImage,
+                images: product.images,
+                description: product.description,
+                category: product.category.name,
+                quantity: product.quantity,
+                views: Math.floor(Math.random() * 100), // Mock data for views
+                likes: Math.floor(Math.random() * 30), // Mock data for likes
+                date: new Date(product.createdAt).toLocaleDateString('en-US', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                })
+            }));
+            
+            setProducts(transformedProducts);
+            setError(null);
+        } catch (err) {
+            console.error('Error fetching products:', err);
+            setError('Failed to load products. Please try again.');
+            Alert.alert('Error', 'Failed to load your products. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Filter products based on active filter
     const filteredProducts = filterActive === 'All'
@@ -104,7 +100,7 @@ export default function SellerProductsScreen() {
 
     // Filter Component
     const FilterTabs = () => {
-        const filters = ['All', 'Active', 'Sold', 'Draft'];
+        const filters = ['All', 'Active', 'Sold Out', 'Draft'];
 
         return (
             <View style={styles.filterContainer}>
@@ -136,7 +132,7 @@ export default function SellerProductsScreen() {
         const getStatusColor = (status) => {
             switch(status) {
                 case 'Active': return '#2ecc71';
-                case 'Sold': return '#3498db';
+                case 'Sold Out': return '#3498db';
                 case 'Draft': return '#95a5a6';
                 default: return '#95a5a6';
             }
@@ -145,14 +141,23 @@ export default function SellerProductsScreen() {
         return (
             <TouchableOpacity style={styles.productCard}>
                 <View style={styles.productImageContainer}>
-                    <Image source={{ uri: item.image }} style={styles.productImage} />
+                    <Image 
+                        source={{ uri: item.image }} 
+                        style={styles.productImage} 
+                        resizeMode="cover"
+                    />
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
                         <Text style={styles.statusText}>{item.status}</Text>
                     </View>
                 </View>
                 <View style={styles.productInfo}>
                     <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.productPrice}>${item.price}</Text>
+                    <Text style={styles.productPrice}>
+                        ${item.price}
+                        {item.originalPrice && item.price !== item.originalPrice && (
+                            <Text style={styles.originalPrice}> ${item.originalPrice}</Text>
+                        )}
+                    </Text>
 
                     <View style={styles.productMetaContainer}>
                         <View style={styles.productMeta}>
@@ -172,124 +177,55 @@ export default function SellerProductsScreen() {
             </TouchableOpacity>
         );
     };
-
-    // Add Product Modal
-    const AddProductModal = () => (
-        <Modal
-            animationType="slide"
-            transparent={true}
-            visible={modalVisible}
-            onRequestClose={() => setModalVisible(false)}
-        >
-            <View style={styles.modalContainer}>
-                <View style={styles.modalContent}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Add New Listing</Text>
-                        <TouchableOpacity onPress={() => setModalVisible(false)}>
-                            <FontAwesome name="times" size={24} color="#333" />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView>
-                        <TouchableOpacity style={styles.imageUpload}>
-                            <FontAwesome name="camera" size={30} color="#999" />
-                            <Text style={styles.uploadText}>Add Photos</Text>
-                        </TouchableOpacity>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Title</Text>
-                            <TextInput
-                                style={styles.textInput}
-                                placeholder="Enter product title"
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Description</Text>
-                            <TextInput
-                                style={[styles.textInput, {height: 100}]}
-                                placeholder="Describe your item"
-                                multiline={true}
-                            />
-                        </View>
-
-                        <View style={styles.inputRow}>
-                            <View style={[styles.inputGroup, {flex: 1, marginRight: 10}]}>
-                                <Text style={styles.inputLabel}>Price ($)</Text>
-                                <TextInput
-                                    style={styles.textInput}
-                                    placeholder="0.00"
-                                    keyboardType="decimal-pad"
-                                />
-                            </View>
-
-                            <View style={[styles.inputGroup, {flex: 1}]}>
-                                <Text style={styles.inputLabel}>Category</Text>
-                                <TouchableOpacity style={styles.selectInput}>
-                                    <Text style={styles.selectText}>Select</Text>
-                                    <FontAwesome name="chevron-down" size={14} color="#666" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Condition</Text>
-                            <View style={styles.conditionOptions}>
-                                {['New', 'Like New', 'Good', 'Fair', 'Poor'].map((condition) => (
-                                    <TouchableOpacity
-                                        key={condition}
-                                        style={styles.conditionOption}
-                                    >
-                                        <Text style={styles.conditionText}>{condition}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-
-                        <View style={styles.buttonContainer}>
-                            <TouchableOpacity
-                                style={[styles.button, styles.draftButton]}
-                                onPress={() => setModalVisible(false)}
-                            >
-                                <Text style={styles.draftButtonText}>Save as Draft</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.button, styles.publishButton]}
-                                onPress={() => setModalVisible(false)}
-                            >
-                                <Text style={styles.publishButtonText}>Publish</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </ScrollView>
-                </View>
-            </View>
-        </Modal>
-    );
-
     // Floating Action Button
-    const FloatingActionButton = () => (
-        <TouchableOpacity
-            style={styles.fab}
-            onPress={() => setModalVisible(true)}
-        >
-            <FontAwesome name="plus" size={24} color="#fff" />
-        </TouchableOpacity>
+    const FloatingActionButton = () => {
+        const navigation = useNavigation();
+    
+        return (
+            <TouchableOpacity
+                style={styles.fab}
+                onPress={() => navigation.navigate('AddProduct')}
+            >
+                <FontAwesome name="plus" size={24} color="#fff" />
+            </TouchableOpacity>
+        );
+    };
+
+    // Loading component
+    const LoadingComponent = () => (
+        <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#e74c3c" />
+            <Text style={styles.loadingText}>Loading your listings...</Text>
+        </View>
     );
 
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar style="dark" />
-
             <Header />
             <FilterTabs />
 
-            {filteredProducts.length > 0 ? (
+            {loading ? (
+                <LoadingComponent />
+            ) : error ? (
+                <View style={styles.emptyState}>
+                    <FontAwesome name="exclamation-circle" size={50} color="#e74c3c" />
+                    <Text style={styles.errorText}>{error}</Text>
+                    <TouchableOpacity 
+                        style={styles.retryButton}
+                        onPress={fetchProducts}
+                    >
+                        <Text style={styles.retryButtonText}>Retry</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : filteredProducts.length > 0 ? (
                 <FlatList
                     data={filteredProducts}
                     renderItem={({ item }) => <ProductItem item={item} />}
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.productList}
+                    refreshing={loading}
+                    onRefresh={fetchProducts}
                 />
             ) : (
                 <View style={styles.emptyState}>
@@ -299,7 +235,6 @@ export default function SellerProductsScreen() {
             )}
 
             <FloatingActionButton />
-            <AddProductModal />
         </SafeAreaView>
     );
 }
@@ -315,7 +250,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 16,
-        marginTop:10,
+        marginTop: 10,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
@@ -410,6 +345,12 @@ const styles = StyleSheet.create({
         color: '#e74c3c',
         marginBottom: 8,
     },
+    originalPrice: {
+        fontSize: 14,
+        fontWeight: 'normal',
+        color: '#999',
+        textDecorationLine: 'line-through',
+    },
     productMetaContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -446,6 +387,33 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#999',
         marginTop: 12,
+    },
+    errorText: {
+        fontSize: 16,
+        color: '#e74c3c',
+        marginTop: 12,
+        textAlign: 'center',
+    },
+    retryButton: {
+        marginTop: 16,
+        paddingVertical: 8,
+        paddingHorizontal: 24,
+        backgroundColor: '#e74c3c',
+        borderRadius: 20,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontWeight: '500',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 16,
+        color: '#666',
     },
     fab: {
         position: 'absolute',

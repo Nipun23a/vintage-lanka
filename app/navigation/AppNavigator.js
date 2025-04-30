@@ -33,6 +33,8 @@ import SellerPaymentsScreen from "../screens/seller/SellerPaymentsScreen";
 import SellerAddProductScreen from "../screens/seller/SellerAddProductScreen";
 import SellerProfileScreen from "../screens/seller/SellerProfileScreen";
 import OrderThankYouScreen from '../screens/buyer/OrderThankYouScreen';
+import CreateProductScreen from '../screens/seller/CreateProductScreen';
+import InboxScreen from '../screens/seller/InboxScreen';
 
 
 // Create the navigation stacks
@@ -164,9 +166,10 @@ const SellerNavigator = ({ onLogout }) => {
             <Stack.Screen name="SellerTabs">
                 {props => <SellerTabNavigator {...props} onLogout={onLogout} />}
             </Stack.Screen>
-            <Stack.Screen name="AddProduct" component={SellerAddProductScreen} />
+            <Tab.Screen name = "AddProduct" component={CreateProductScreen}/>
             <Stack.Screen name="Payments" component={SellerPaymentsScreen} />
             <Stack.Screen name ="Chat" component={ChatScreen}/>
+            <Stack.Screen name = "Inbox" component = {InboxScreen}/>
             <Stack.Screen name="ReceivePayment" component={SellerReceivePaymentScreen} />
         </Stack.Navigator>
     );

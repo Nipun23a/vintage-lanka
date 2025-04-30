@@ -1,9 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
-import {SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Switch, Alert} from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Switch, Alert } from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useEffect, useState } from 'react';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Import the modals
+import PersonalInfoUpdateModal from '../../components/PersonalInfoUpdateModal';
+import PasswordUpdateModal from '../../components/PasswordUpdateModal';
 
 // Header Component
 const Header = () => {
@@ -25,25 +29,25 @@ const Header = () => {
 
 // Profile Header Component
 const ProfileHeader = () => {
-    const [user,setUser] = useState({
+    const [user, setUser] = useState({
         userFullName: "",
         userEmail: '',
         userProfileImage: '',
     });
+    const navigation = useNavigation();
 
-
-    useEffect(()=> {
+    useEffect(() => {
         const loadUserData = async () => {
-            try{
+            try {
                 const userData = await AsyncStorage.getItem('userData');
                 if (userData) {
                     const parsedUserData = JSON.parse(userData);
                     setUser({
                         userFullName: parsedUserData.userFullName,
                         userEmail: parsedUserData.userEmail,
-                        userProfileImage:parsedUserData.userProfileImage
+                        userProfileImage: parsedUserData.userProfileImage
                     });
-                }else{
+                } else {
                     console.log('User data not found in AsyncStorage');
                     // Redirect to login if needed
                     navigation.reset({
@@ -51,7 +55,7 @@ const ProfileHeader = () => {
                         routes: [{ name: 'Login' }],
                     });
                 }
-            }catch(error){
+            } catch (error) {
                 console.log('Error loading user data:', error);
                 Alert.alert(
                     'Error',
@@ -61,7 +65,7 @@ const ProfileHeader = () => {
         }
 
         loadUserData();
-    },[])
+    }, [])
     return (
         <View style={styles.profileHeader}>
             <View style={styles.profileImageContainer}>
@@ -80,51 +84,6 @@ const ProfileHeader = () => {
                     <Text style={styles.profileStatusText}>Verified Seller</Text>
                     <FontAwesome name="check-circle" size={14} color="#2ecc71" style={{ marginLeft: 5 }} />
                 </View>
-            </View>
-            <TouchableOpacity style={styles.editProfileButton}>
-                <Text style={styles.editProfileText}>Edit Profile</Text>
-            </TouchableOpacity>
-        </View>
-    );
-};
-
-// Store Stats Component
-const StoreStats = () => {
-    return (
-        <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-                <Text style={styles.statNumber}>256</Text>
-                <Text style={styles.statLabel}>Items Sold</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-                <Text style={styles.statNumber}>4.8</Text>
-                <Text style={styles.statLabel}>Rating</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-                <Text style={styles.statNumber}>35</Text>
-                <Text style={styles.statLabel}>Reviews</Text>
-            </View>
-        </View>
-    );
-};
-
-// Store Information Component
-const StoreInformation = () => {
-    return (
-        <View style={styles.storeInfoContainer}>
-            <Text style={styles.storeInfoLabel}>Store Information</Text>
-            <View style={styles.storeInfoContent}>
-                <Text style={styles.storeName}>Vintage Treasures</Text>
-                <Text style={styles.storeDescription}>
-                    Specializing in authentic vintage collectibles, cameras, and home decor from the 60s-90s.
-                    Every item has a story to tell!
-                </Text>
-                <TouchableOpacity style={styles.viewStoreButton}>
-                    <Text style={styles.viewStoreText}>View My Store</Text>
-                    <FontAwesome name="external-link" size={14} color="#3498db" style={{ marginLeft: 5 }} />
-                </TouchableOpacity>
             </View>
         </View>
     );
@@ -162,8 +121,68 @@ const SettingsSection = ({ title, icon, toggleEnabled, onToggle, hasChevron, onP
 const AccountSettings = ({ onLogout }) => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [darkModeEnabled, setDarkModeEnabled] = useState(false);
-    const [isLoggingOut, setIsLoggingOut] = useState(false); // Add loading state for logout
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
+    const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+    const [userData, setUserData] = useState(null);
     const navigation = useNavigation();
+
+    // Load user data for the personal info modal
+    useEffect(() => {
+        const loadUserData = async () => {
+            try {
+                const storedUserData = await AsyncStorage.getItem('userData');
+                if (storedUserData) {
+                    const parsedUserData = JSON.parse(storedUserData);
+                    setUserData({
+                        name: parsedUserData.userFullName,
+                        email: parsedUserData.userEmail,
+                        phone: parsedUserData.userPhoneNumber || '',
+                        location: parsedUserData.userLocation || ''
+                    });
+                }
+            } catch (error) {
+                console.log('Error loading user data:', error);
+            }
+        };
+
+        loadUserData();
+    }, []);
+
+    const handleSavePersonalInfo = async (updatedData) => {
+        try {
+            // Get existing user data
+            const storedUserData = await AsyncStorage.getItem('userData');
+            if (storedUserData) {
+                const parsedUserData = JSON.parse(storedUserData);
+                
+                // Update with new information
+                const newUserData = {
+                    ...parsedUserData,
+                    userFullName: updatedData.name,
+                    userEmail: updatedData.email,
+                    userPhoneNumber: updatedData.phone,
+                    userLocation: updatedData.location
+                };
+                
+                // Save back to AsyncStorage
+                await AsyncStorage.setItem('userData', JSON.stringify(newUserData));
+                
+                // Update the state
+                setUserData({
+                    name: updatedData.name,
+                    email: updatedData.email,
+                    phone: updatedData.phone,
+                    location: updatedData.location
+                });
+                
+                Alert.alert("Success", "Personal information updated successfully!");
+            }
+        } catch (error) {
+            console.log('Error saving user data:', error);
+            Alert.alert("Error", "Failed to update personal information.");
+        }
+    };
 
     const handleLogout = async () => {
         if (isLoggingOut) return; // Prevent multiple logout attempts
@@ -179,7 +198,8 @@ const AccountSettings = ({ onLogout }) => {
                 'userEmail',
                 'userPhoneNumber',
                 'userAddresses',
-                'userCart'
+                'userCart',
+                'userData'
             ];
 
             // Clear all authentication-related data from AsyncStorage
@@ -193,7 +213,7 @@ const AccountSettings = ({ onLogout }) => {
                 // Fallback navigation if onLogout is not provided
                 navigation.reset({
                     index: 0,
-                    routes: [{ name: 'SellerTabs' }], // Or 'SellerTabs' depending on context
+                    routes: [{ name: 'SellerTabs' }],
                 });
             }
         } catch (error) {
@@ -213,31 +233,10 @@ const AccountSettings = ({ onLogout }) => {
             <Text style={styles.sectionTitle}>Account</Text>
 
             <SettingsSection
-                title="Personal Information"
-                icon="user"
+                title="Change Password"
+                icon="lock"
                 hasChevron={true}
-                onPress={() => navigation.navigate('PersonalInfo')}
-            />
-
-            <SettingsSection
-                title="Payment Methods"
-                icon="credit-card"
-                hasChevron={true}
-                onPress={() => navigation.navigate('PaymentMethods')}
-            />
-
-            <SettingsSection
-                title="Shipping Information"
-                icon="truck"
-                hasChevron={true}
-                onPress={() => navigation.navigate('ShippingInfo')}
-            />
-
-            <SettingsSection
-                title="Tax Information"
-                icon="file-text"
-                hasChevron={true}
-                onPress={() => navigation.navigate('TaxInfo')}
+                onPress={() => setPasswordModalVisible(true)}
             />
 
             <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Preferences</Text>
@@ -254,13 +253,14 @@ const AccountSettings = ({ onLogout }) => {
                 icon="moon-o"
                 toggleEnabled={darkModeEnabled}
                 onToggle={setDarkModeEnabled}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <SettingsSection
                 title="Language"
                 icon="globe"
                 hasChevron={true}
-                onPress={() => navigation.navigate('LanguageSettings')}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Help & Support</Text>
@@ -269,21 +269,21 @@ const AccountSettings = ({ onLogout }) => {
                 title="Help Center"
                 icon="question-circle"
                 hasChevron={true}
-                onPress={() => navigation.navigate('HelpCenter')}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <SettingsSection
                 title="Contact Support"
                 icon="envelope"
                 hasChevron={true}
-                onPress={() => navigation.navigate('ContactSupport')}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <SettingsSection
                 title="About"
                 icon="info-circle"
                 hasChevron={true}
-                onPress={() => navigation.navigate('About')}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <TouchableOpacity
@@ -299,19 +299,31 @@ const AccountSettings = ({ onLogout }) => {
                     {isLoggingOut ? 'Logging out...' : 'Log Out'}
                 </Text>
             </TouchableOpacity>
+
+            {/* Personal Info Update Modal */}
+            <PersonalInfoUpdateModal
+                visible={personalInfoModalVisible}
+                onClose={() => setPersonalInfoModalVisible(false)}
+                userData={userData}
+                onSave={handleSavePersonalInfo}
+            />
+
+            {/* Password Update Modal */}
+            <PasswordUpdateModal
+                visible={passwordModalVisible}
+                onClose={() => setPasswordModalVisible(false)}
+            />
         </View>
     );
 };
 
-export default function SellerProfileScreen({onLogout}) {
+export default function SellerProfileScreen({ onLogout }) {
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar style="dark-content" backgroundColor="#fff" />
             <Header />
             <ScrollView showsVerticalScrollIndicator={false}>
                 <ProfileHeader />
-                <StoreStats />
-                <StoreInformation />
                 <AccountSettings onLogout={onLogout} />
                 <View style={styles.footer} />
             </ScrollView>

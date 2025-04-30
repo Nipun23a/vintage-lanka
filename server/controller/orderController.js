@@ -1,5 +1,8 @@
 const Order = require('../models/orderModel');
+const User = require('../models/userModel');
 const Product = require('../models/productModel');
+
+const mongoose = require('mongoose');
 
 // Create a new Order
 exports.createOrder = async (req, res) => {
@@ -26,23 +29,34 @@ exports.createOrder = async (req, res) => {
 
 // Update Order Status
 exports.updateOrderStatus = async (req, res) => {
+    const { orderId } = req.params;  // Get orderId from route params
+    const { status } = req.body;  // Get the new status from the request body
+
     try {
-        const { status } = req.body;
-        const { orderId } = req.params;
+        // Find the order by its ID
+        const order = await Order.findById(orderId);
 
-        const updatedOrder = await Order.findByIdAndUpdate(
-            orderId,
-            { orderStatus: status },
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedOrder) {
+        if (!order) {
             return res.status(404).json({ message: 'Order not found' });
         }
 
-        res.status(200).json({ message: 'Order status updated successfully', order: updatedOrder });
+        // Check if the status is valid
+        const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status' });
+        }
+
+        // Update the order status
+        order.orderStatus = status;
+
+        // Save the updated order
+        await order.save();
+
+        // Respond with the updated order
+        res.status(200).json(order);
     } catch (error) {
-        res.status(500).json({ message: 'Error updating order status', error: error.message });
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
     }
 };
 
@@ -93,3 +107,68 @@ exports.getOrdersByUser = async (req,res) => {
         res.status(500).json({message:'Server error while fetching orders'})
     }
 };
+
+
+exports.getSellerOrderSummary = async (req, res) => {
+    try {
+        const sellerId = req.params.sellerId;
+        console.log(sellerId);
+               
+        // Validate the seller exists
+        const seller = await User.findById(sellerId);
+        if (!seller) {
+            return res.status(400).json({ message: 'Invalid seller ID.' });
+        }
+        
+        // Step 1: Find all products of this seller
+        const sellerProducts = await Product.find({ seller: sellerId }).select('_id');
+        const productIds = sellerProducts.map(product => product._id.toString());
+        const productCount = sellerProducts.length;
+        if (productIds.length === 0) {
+            return res.status(404).json({ message: 'No products found for this seller' });
+        }
+        
+        // Step 2: Find orders containing these products
+        const orders = await Order.find({
+            'orderItems.product': { $in: productIds }
+        });
+        
+        // Step 3: Calculate total orders and revenue
+        let totalRevenue = 0;
+        let orderCount = 0;
+        
+        // Create a set to track unique order IDs
+        const uniqueOrderIds = new Set();
+        
+        // Process each order
+        orders.forEach(order => {
+            // Add this order ID to our set of unique orders
+            uniqueOrderIds.add(order._id.toString());
+            
+            // Calculate revenue from this seller's products in this order
+            order.orderItems.forEach(item => {
+                // Check if this item is from our seller
+                
+                if (productIds.includes(item.product.toString())) {
+                    totalRevenue += (item.price * item.quantity);
+                }
+            });
+        });
+        
+        // Get the total count of unique orders
+        orderCount = uniqueOrderIds.size;
+       
+        res.status(200).json({
+            message: 'Seller order summary retrieved successfully',
+            data: {
+                productCount,
+                orderCount,
+                totalRevenue: parseFloat(totalRevenue.toFixed(2))
+            }
+        });
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).json({ message: 'Error retrieving seller order summary', error: error.message });
+    }
+};
+

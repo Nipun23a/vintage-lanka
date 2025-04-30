@@ -10,6 +10,8 @@ const {
     clearCart,
     getCart, updatePassword, addFavourite, getFavourite,removeFavourite,
     updateCartQuantity,
+    getAddresses,
+    createAddress,
     addAddress,
     updateAddress,
     deleteAddress,
@@ -58,6 +60,11 @@ router.post('/:id/addresses', addAddress);
 router.put('/:userId/addresses/:addressId', updateAddress);
 router.delete('/:userId/addresses/:addressId', deleteAddress);
 router.put('/:id/addresses', updateUserAddresses);
+router.get('/:userId/addresses', getAddresses);
+router.post('/:userId/addresses', createAddress);
+
+router.put('/:userId/addresses/:addressId', updateAddress);
+router.delete('/:userId/addresses/:addressId',deleteAddress);
 
 
 module.exports = router;
