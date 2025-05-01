@@ -1,130 +1,89 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
     View,
     SafeAreaView,
-    ScrollView,
     TouchableOpacity,
     FlatList,
-    Image
+    Image,
+    ActivityIndicator,
+    Alert
 } from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
 export default function SellerOrdersScreen() {
     const [activeTab, setActiveTab] = useState('Current');
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [userId, setUserId] = useState(null);
+    const navigation = useNavigation();
 
-    // Sample order data
-    const orders = [
-        {
-            id: 'ORD-2025-001',
-            buyerName: 'John Smith',
-            buyerImage: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            date: '25 Apr 2025',
-            status: 'To Ship',
-            items: [
-                {
-                    title: 'Vintage Record Player',
-                    quantity: 1,
-                    price: '175.00',
-                    image: 'https://images.unsplash.com/photo-1656870916547-9e6a8a17f6e7?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
+    // Get user ID from AsyncStorage
+    useEffect(() => {
+        const getUserData = async () => {
+            try {
+                const userData = await AsyncStorage.getItem('userData');
+                if (userData) {
+                    const parsedData = JSON.parse(userData);
+                    setUserId(parsedData.userId);
                 }
-            ],
-            total: '175.00'
-        },
-        {
-            id: 'ORD-2025-002',
-            buyerName: 'Emma Wilson',
-            buyerImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            date: '24 Apr 2025',
-            status: 'Processing',
-            items: [
-                {
-                    title: 'Vintage Radio',
-                    quantity: 1,
-                    price: '145.00',
-                    image: 'https://images.unsplash.com/photo-1630012974522-7e683def2ae5?q=80&w=2127&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
-                },
-                {
-                    title: 'Classic Typewriter',
-                    quantity: 1,
-                    price: '195.00',
-                    image: 'https://images.unsplash.com/reserve/LJIZlzHgQ7WPSh5KVTCB_Typewriter.jpg?q=80&w=1992&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
-                }
-            ],
-            total: '340.00'
-        },
-        {
-            id: 'ORD-2025-003',
-            buyerName: 'Michael Johnson',
-            buyerImage: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            date: '23 Apr 2025',
-            status: 'Shipped',
-            items: [
-                {
-                    title: 'Vintage Camera',
-                    quantity: 1,
-                    price: '125.00',
-                    image: 'https://images.unsplash.com/photo-1601854266103-c1dd42130633?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
-                }
-            ],
-            total: '125.00',
-            trackingNumber: 'TRK123456789'
-        },
-        {
-            id: 'ORD-2025-004',
-            buyerName: 'Sarah Davis',
-            buyerImage: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            date: '20 Apr 2025',
-            status: 'Delivered',
-            items: [
-                {
-                    title: 'Antique Clock',
-                    quantity: 1,
-                    price: '225.00',
-                    image: 'https://images.unsplash.com/photo-1679973957366-2f926a250629?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
-                }
-            ],
-            total: '225.00',
-            deliveredDate: '22 Apr 2025'
-        },
-        {
-            id: 'ORD-2025-005',
-            buyerName: 'Alex Brown',
-            buyerImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            date: '15 Apr 2025',
-            status: 'Completed',
-            items: [
-                {
-                    title: 'Vintage Pocket Watch',
-                    quantity: 1,
-                    price: '85.00',
-                    image: 'https://images.unsplash.com/photo-1509048191080-d2984bad6ae5?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
-                }
-            ],
-            total: '85.00',
-            deliveredDate: '18 Apr 2025',
-            reviewRating: 5
-        },
-        {
-            id: 'ORD-2025-006',
-            buyerName: 'Taylor Martinez',
-            buyerImage: 'https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=1972&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-            date: '10 Apr 2025',
-            status: 'Cancelled',
-            items: [
-                {
-                    title: 'Vintage Record Player',
-                    quantity: 1,
-                    price: '175.00',
-                    image: 'https://images.unsplash.com/photo-1656870916547-9e6a8a17f6e7?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
-                }
-            ],
-            total: '175.00',
-            cancelReason: 'Buyer requested cancellation'
+            } catch (error) {
+                console.error('Error getting user data:', error);
+                setError('Failed to load user data');
+            }
+        };
+
+        getUserData();
+    }, []);
+
+    // Fetch orders from API when userId is available
+    useEffect(() => {
+        if (userId) {
+            fetchOrders();
         }
-    ];
+    }, [userId]);
+
+    const fetchOrders = async () => {
+        setLoading(true);
+        try {
+            const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/orders/${userId}/seller`);
+            
+            // Process the orders data to match our component's expected format
+            const processedOrders = response.data.orders.map(order => {
+                return {
+                    id: order._id,
+                    buyerName: order.buyer.fullname,
+                    date: new Date(order.createdAt).toLocaleDateString('en-US', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    }),
+                    status: order.orderStatus,
+                    items: order.orderItems.map(item => ({
+                        title: item.product.title,
+                        quantity: item.quantity,
+                        price: item.price.toFixed(2),
+                    })),
+                    total: order.totalAmount.toFixed(2),
+                    paymentStatus: order.paymentStatus,
+                    shippingAddress: order.shippingAddress
+                };
+            });
+            
+            setOrders(processedOrders);
+            setLoading(false);
+        } catch (error) {
+            console.error('Error fetching orders:', error);
+            setError('Failed to load orders');
+            setLoading(false);
+        }
+    };
 
     // Filter orders based on active tab
     const filteredOrders = orders.filter(order => {
@@ -185,16 +144,14 @@ export default function SellerOrdersScreen() {
     const StatusBadge = ({ status }) => {
         const getStatusInfo = (status) => {
             switch(status) {
+                case 'Pending':
+                    return { color: '#f39c12', icon: 'clock-o' };
                 case 'Processing':
                     return { color: '#f39c12', icon: 'hourglass-start' };
-                case 'To Ship':
-                    return { color: '#e74c3c', icon: 'box' };
                 case 'Shipped':
                     return { color: '#3498db', icon: 'truck' };
                 case 'Delivered':
                     return { color: '#2ecc71', icon: 'check-circle' };
-                case 'Completed':
-                    return { color: '#27ae60', icon: 'check-circle' };
                 case 'Cancelled':
                     return { color: '#95a5a6', icon: 'times-circle' };
                 default:
@@ -215,6 +172,37 @@ export default function SellerOrdersScreen() {
     // Order Item Component
     const OrderItem = ({ order }) => {
         const [expanded, setExpanded] = useState(false);
+
+        const handleUpdateStatus = async (newStatus) => {
+            Alert.alert(
+                "Update Order Status",
+                `Are you sure you want to update this order to "${newStatus}"?`,
+                [
+                    {
+                        text: "Cancel",
+                        style: "cancel"
+                    },
+                    {
+                        text: "Update",
+                        onPress: async () => {
+                            try {
+                                // Use order.id instead of order._id and update orderStatus instead of status
+                                await axios.patch(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/orders/${order.id}`, {
+                                    status: newStatus
+                                });
+    
+                                Alert.alert("Success", "Order status updated successfully");
+    
+                                fetchOrders(); // Refresh the orders
+                            } catch (error) {
+                                console.error('Error updating order status:', error);
+                                Alert.alert("Error", "Failed to update order status");
+                            }
+                        }
+                    }
+                ]
+            );
+        };
 
         return (
             <View style={styles.orderCard}>
@@ -240,7 +228,6 @@ export default function SellerOrdersScreen() {
                         <View style={styles.orderItems}>
                             {order.items.map((item, index) => (
                                 <View key={index} style={styles.orderItem}>
-                                    <Image source={{ uri: item.image }} style={styles.itemImage} />
                                     <View style={styles.itemInfo}>
                                         <Text style={styles.itemTitle}>{item.title}</Text>
                                         <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
@@ -256,79 +243,66 @@ export default function SellerOrdersScreen() {
                                 <Text style={styles.orderTotalValue}>${order.total}</Text>
                             </View>
 
-                            {order.trackingNumber && (
-                                <View style={styles.orderInfo}>
-                                    <Text style={styles.orderInfoLabel}>Tracking:</Text>
-                                    <Text style={styles.orderInfoValue}>{order.trackingNumber}</Text>
-                                </View>
-                            )}
+                            <View style={styles.orderInfo}>
+                                <Text style={styles.orderInfoLabel}>Payment:</Text>
+                                <Text style={styles.orderInfoValue}>{order.paymentStatus}</Text>
+                            </View>
 
-                            {order.deliveredDate && (
+                            {order.shippingAddress && (
                                 <View style={styles.orderInfo}>
-                                    <Text style={styles.orderInfoLabel}>Delivered:</Text>
-                                    <Text style={styles.orderInfoValue}>{order.deliveredDate}</Text>
-                                </View>
-                            )}
-
-                            {order.reviewRating && (
-                                <View style={styles.orderInfo}>
-                                    <Text style={styles.orderInfoLabel}>Rating:</Text>
-                                    <View style={styles.ratingStars}>
-                                        {[...Array(5)].map((_, i) => (
-                                            <FontAwesome
-                                                key={i}
-                                                name="star"
-                                                size={14}
-                                                color={i < order.reviewRating ? '#f39c12' : '#ddd'}
-                                                style={{marginRight: 2}}
-                                            />
-                                        ))}
-                                    </View>
-                                </View>
-                            )}
-
-                            {order.cancelReason && (
-                                <View style={styles.orderInfo}>
-                                    <Text style={styles.orderInfoLabel}>Cancel Reason:</Text>
-                                    <Text style={styles.orderInfoValue}>{order.cancelReason}</Text>
+                                    <Text style={styles.orderInfoLabel}>Shipping Address:</Text>
+                                    <Text style={styles.orderInfoValue}>
+                                        {`${order.shippingAddress.street}, ${order.shippingAddress.city}, ${order.shippingAddress.state}, ${order.shippingAddress.zipCode}`}
+                                    </Text>
                                 </View>
                             )}
                         </View>
 
                         <View style={styles.actionButtons}>
-                            {order.status === 'Processing' && (
-                                <TouchableOpacity style={[styles.actionButton, styles.primaryButton]}>
-                                    <Text style={styles.primaryButtonText}>Process Order</Text>
+                            {order.status === 'Pending' && (
+                                <TouchableOpacity 
+                                    style={[styles.actionButton, styles.primaryButton]}
+                                    onPress={() => handleUpdateStatus('Processing')}
+                                >
+                                    <Text style={styles.primaryButtonText}>Start Processing</Text>
                                 </TouchableOpacity>
                             )}
 
-                            {order.status === 'To Ship' && (
-                                <TouchableOpacity style={[styles.actionButton, styles.primaryButton]}>
+                            {order.status === 'Processing' && (
+                                <TouchableOpacity 
+                                    style={[styles.actionButton, styles.primaryButton]}
+                                    onPress={() => handleUpdateStatus('Shipped')}
+                                >
                                     <Text style={styles.primaryButtonText}>Mark as Shipped</Text>
                                 </TouchableOpacity>
                             )}
 
-                            {(order.status === 'Processing' || order.status === 'To Ship') && (
-                                <TouchableOpacity style={[styles.actionButton, styles.secondaryButton]}>
+                            {(order.status === 'Pending' || order.status === 'Processing') && (
+                                <TouchableOpacity 
+                                    style={[styles.actionButton, styles.secondaryButton]}
+                                    onPress={() => handleUpdateStatus('Cancelled')}
+                                >
                                     <Text style={styles.secondaryButtonText}>Cancel Order</Text>
                                 </TouchableOpacity>
                             )}
 
                             {order.status === 'Shipped' && (
-                                <TouchableOpacity style={[styles.actionButton, styles.primaryButton]}>
-                                    <Text style={styles.primaryButtonText}>Update Tracking</Text>
+                                <TouchableOpacity 
+                                    style={[styles.actionButton, styles.primaryButton]}
+                                    onPress={() => handleUpdateStatus('Delivered')}
+                                >
+                                    <Text style={styles.primaryButtonText}>Mark as Delivered</Text>
                                 </TouchableOpacity>
                             )}
 
                             {order.status === 'Delivered' && (
-                                <TouchableOpacity style={[styles.actionButton, styles.primaryButton]}>
+                                <TouchableOpacity 
+                                    style={[styles.actionButton, styles.primaryButton]}
+                                    onPress={() => handleUpdateStatus('Completed')}
+                                >
                                     <Text style={styles.primaryButtonText}>Mark as Completed</Text>
                                 </TouchableOpacity>
                             )}
-
-                            <TouchableOpacity style={[styles.actionButton, styles.outlineButton]}>
-                                <Text style={styles.outlineButtonText}>Contact Buyer</Text>
-                            </TouchableOpacity>
                         </View>
                     </View>
                 )}
@@ -350,18 +324,47 @@ export default function SellerOrdersScreen() {
         </View>
     );
 
+    // Loading Component
+    const LoadingState = () => (
+        <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3498db" />
+            <Text style={styles.loadingText}>Loading orders...</Text>
+        </View>
+    );
+
+    // Error Component
+    const ErrorState = () => (
+        <View style={styles.errorContainer}>
+            <FontAwesome name="exclamation-circle" size={50} color="#e74c3c" />
+            <Text style={styles.errorTitle}>Error Loading Orders</Text>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+                style={styles.retryButton}
+                onPress={fetchOrders}
+            >
+                <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar style="dark" />
             <Header />
             <TabBar />
 
-            {filteredOrders.length > 0 ? (
+            {loading ? (
+                <LoadingState />
+            ) : error ? (
+                <ErrorState />
+            ) : filteredOrders.length > 0 ? (
                 <FlatList
                     data={filteredOrders}
                     renderItem={({ item }) => <OrderItem order={item} />}
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.ordersList}
+                    onRefresh={fetchOrders}
+                    refreshing={loading}
                 />
             ) : (
                 <EmptyState />
@@ -369,6 +372,7 @@ export default function SellerOrdersScreen() {
         </SafeAreaView>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {

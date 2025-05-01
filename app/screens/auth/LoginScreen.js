@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, Alert} from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import AuthLayout from "../../layout/AuthLayout";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
  // Import the AuthLayout component
 
 export default function LoginScreen({ navigation, onLogin }) {
@@ -9,12 +11,9 @@ export default function LoginScreen({ navigation, onLogin }) {
     const [password, setPassword] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
-    // Hardcoded credentials
-    const buyerCredentials = { email: 'buyer@example.com', password: 'buyer123' };
-    const sellerCredentials = { email: 'seller@example.com', password: 'seller123' };
 
-    const handleLogin = () => {
-        // Reset error message
+
+    const handleLogin = async () => {
         setErrorMessage('');
 
         if (email.trim() === '' || password.trim() === '') {
@@ -22,22 +21,46 @@ export default function LoginScreen({ navigation, onLogin }) {
             return;
         }
 
-        // Check if credentials match buyer
-        if (email === buyerCredentials.email && password === buyerCredentials.password) {
-            // Use the onLogin function from props to update auth state
-            onLogin('buyer');
-            return;
-        }
+        try {
+            const response = await axios.post('https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/login',{
+                email,password
+            });
 
-        // Check if credentials match seller
-        if (email === sellerCredentials.email && password === sellerCredentials.password) {
-            // Use the onLogin function from props to update auth state
-            onLogin('seller');
-            return;
-        }
+            if (response.status === 200){
+                const {user} = response.data;
 
-        // If no match found
-        setErrorMessage('Invalid email or password');
+                const userData = {
+                    userId: user._id,
+                    userRole: user.role,
+                    userFullName: user.fullname,
+                    userEmail: user.email,
+                    userPhoneNumber: user.phoneNumber,
+                    userProfileImage: user.profileImage ? user.profileImage : "",
+                    userAddresses: JSON.stringify(user.addresses),
+                    userCart: JSON.stringify(user.cart),
+                    userFavourites:JSON.stringify(user.favourites),
+                };
+                await AsyncStorage.setItem('userData', JSON.stringify(userData));
+                if (user.role === 'seller'){
+                    onLogin('seller');
+                    return;
+                }else if (user.role === 'buyer'){
+                    onLogin('buyer');
+                    return;
+                }
+            }else {
+                Alert.alert('Error','Invalid Credentials')
+            }
+        }catch (error){
+            if(error.response){
+                Alert.alert(error.response.data.message || 'Error logging in');
+            }else if (error.request){
+                Alert.alert('Network Error','Error Occurred');
+            }else {
+                Alert.alert('Error occurred','Error Occurred');
+            }
+            console.log('Login Failed',error);
+        }
     };
 
     return (
@@ -85,13 +108,6 @@ export default function LoginScreen({ navigation, onLogin }) {
             <TouchableOpacity style={styles.signInButton} onPress={handleLogin}>
                 <Text style={styles.signInButtonText}>Sign In</Text>
             </TouchableOpacity>
-
-            {/* Demo Account Info */}
-            <View style={styles.demoAccountsContainer}>
-                <Text style={styles.demoAccountsTitle}>Demo Accounts:</Text>
-                <Text style={styles.demoAccountText}>Buyer: buyer@example.com / buyer123</Text>
-                <Text style={styles.demoAccountText}>Seller: seller@example.com / seller123</Text>
-            </View>
 
             {/* Or continue with */}
             <View style={styles.dividerContainer}>

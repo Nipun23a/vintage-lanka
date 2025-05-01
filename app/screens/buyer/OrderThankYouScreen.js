@@ -20,8 +20,9 @@ export default function OrderThankYouScreen({ navigation, route }) {
     }, []);
 
     const handleContinueShopping = () => {
-        // Navigate to home screen or product list
-        navigation.navigate('Home');
+        navigation.navigate('BuyerTabs', {
+            screen: 'Home',
+        });
     };
 
     const handleTrackOrder = () => {
@@ -114,10 +115,7 @@ export default function OrderThankYouScreen({ navigation, route }) {
                 </View>
 
                 <View style={styles.actionsContainer}>
-                    <TouchableOpacity style={styles.primaryButton} onPress={handleTrackOrder}>
-                        <Text style={styles.primaryButtonText}>Track Order</Text>
-                    </TouchableOpacity>
-
+                
                     <TouchableOpacity style={styles.secondaryButton} onPress={handleContinueShopping}>
                         <Text style={styles.secondaryButtonText}>Continue Shopping</Text>
                     </TouchableOpacity>

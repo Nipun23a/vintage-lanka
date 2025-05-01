@@ -1,8 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Switch } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Image, Switch, Alert } from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Import the modals
+import PersonalInfoUpdateModal from '../../components/PersonalInfoUpdateModal';
+import PasswordUpdateModal from '../../components/PasswordUpdateModal';
 
 // Header Component
 const Header = () => {
@@ -24,11 +29,48 @@ const Header = () => {
 
 // Profile Header Component
 const ProfileHeader = () => {
+    const [user, setUser] = useState({
+        userFullName: "",
+        userEmail: '',
+        userProfileImage: '',
+    });
+    const navigation = useNavigation();
+
+    useEffect(() => {
+        const loadUserData = async () => {
+            try {
+                const userData = await AsyncStorage.getItem('userData');
+                if (userData) {
+                    const parsedUserData = JSON.parse(userData);
+                    setUser({
+                        userFullName: parsedUserData.userFullName,
+                        userEmail: parsedUserData.userEmail,
+                        userProfileImage: parsedUserData.userProfileImage
+                    });
+                } else {
+                    console.log('User data not found in AsyncStorage');
+                    // Redirect to login if needed
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'Login' }],
+                    });
+                }
+            } catch (error) {
+                console.log('Error loading user data:', error);
+                Alert.alert(
+                    'Error',
+                    'Failed to load user data. Please log in again.'
+                );
+            }
+        }
+
+        loadUserData();
+    }, [])
     return (
         <View style={styles.profileHeader}>
             <View style={styles.profileImageContainer}>
                 <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=2940&auto=format&fit=crop' }}
+                    source={{ uri: user.userProfileImage || 'https://via.placeholder.com/150' }}
                     style={styles.profileImage}
                 />
                 <TouchableOpacity style={styles.editProfileImageButton}>
@@ -36,57 +78,12 @@ const ProfileHeader = () => {
                 </TouchableOpacity>
             </View>
             <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>John Doe</Text>
-                <Text style={styles.profileUsername}>@johndoesells</Text>
+                <Text style={styles.profileName}>{user.userFullName}</Text>
+                <Text style={styles.profileUsername}>{user.userEmail}</Text>
                 <View style={styles.profileStatus}>
                     <Text style={styles.profileStatusText}>Verified Seller</Text>
                     <FontAwesome name="check-circle" size={14} color="#2ecc71" style={{ marginLeft: 5 }} />
                 </View>
-            </View>
-            <TouchableOpacity style={styles.editProfileButton}>
-                <Text style={styles.editProfileText}>Edit Profile</Text>
-            </TouchableOpacity>
-        </View>
-    );
-};
-
-// Store Stats Component
-const StoreStats = () => {
-    return (
-        <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-                <Text style={styles.statNumber}>256</Text>
-                <Text style={styles.statLabel}>Items Sold</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-                <Text style={styles.statNumber}>4.8</Text>
-                <Text style={styles.statLabel}>Rating</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-                <Text style={styles.statNumber}>35</Text>
-                <Text style={styles.statLabel}>Reviews</Text>
-            </View>
-        </View>
-    );
-};
-
-// Store Information Component
-const StoreInformation = () => {
-    return (
-        <View style={styles.storeInfoContainer}>
-            <Text style={styles.storeInfoLabel}>Store Information</Text>
-            <View style={styles.storeInfoContent}>
-                <Text style={styles.storeName}>Vintage Treasures</Text>
-                <Text style={styles.storeDescription}>
-                    Specializing in authentic vintage collectibles, cameras, and home decor from the 60s-90s.
-                    Every item has a story to tell!
-                </Text>
-                <TouchableOpacity style={styles.viewStoreButton}>
-                    <Text style={styles.viewStoreText}>View My Store</Text>
-                    <FontAwesome name="external-link" size={14} color="#3498db" style={{ marginLeft: 5 }} />
-                </TouchableOpacity>
             </View>
         </View>
     );
@@ -121,41 +118,125 @@ const SettingsSection = ({ title, icon, toggleEnabled, onToggle, hasChevron, onP
 };
 
 // Account Settings Component
-const AccountSettings = () => {
+const AccountSettings = ({ onLogout }) => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [personalInfoModalVisible, setPersonalInfoModalVisible] = useState(false);
+    const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+    const [userData, setUserData] = useState(null);
     const navigation = useNavigation();
+
+    // Load user data for the personal info modal
+    useEffect(() => {
+        const loadUserData = async () => {
+            try {
+                const storedUserData = await AsyncStorage.getItem('userData');
+                if (storedUserData) {
+                    const parsedUserData = JSON.parse(storedUserData);
+                    setUserData({
+                        name: parsedUserData.userFullName,
+                        email: parsedUserData.userEmail,
+                        phone: parsedUserData.userPhoneNumber || '',
+                        location: parsedUserData.userLocation || ''
+                    });
+                }
+            } catch (error) {
+                console.log('Error loading user data:', error);
+            }
+        };
+
+        loadUserData();
+    }, []);
+
+    const handleSavePersonalInfo = async (updatedData) => {
+        try {
+            // Get existing user data
+            const storedUserData = await AsyncStorage.getItem('userData');
+            if (storedUserData) {
+                const parsedUserData = JSON.parse(storedUserData);
+                
+                // Update with new information
+                const newUserData = {
+                    ...parsedUserData,
+                    userFullName: updatedData.name,
+                    userEmail: updatedData.email,
+                    userPhoneNumber: updatedData.phone,
+                    userLocation: updatedData.location
+                };
+                
+                // Save back to AsyncStorage
+                await AsyncStorage.setItem('userData', JSON.stringify(newUserData));
+                
+                // Update the state
+                setUserData({
+                    name: updatedData.name,
+                    email: updatedData.email,
+                    phone: updatedData.phone,
+                    location: updatedData.location
+                });
+                
+                Alert.alert("Success", "Personal information updated successfully!");
+            }
+        } catch (error) {
+            console.log('Error saving user data:', error);
+            Alert.alert("Error", "Failed to update personal information.");
+        }
+    };
+
+    const handleLogout = async () => {
+        if (isLoggingOut) return; // Prevent multiple logout attempts
+
+        setIsLoggingOut(true);
+
+        try {
+            // Keys to be removed from AsyncStorage
+            const keysToRemove = [
+                'userId',
+                'userRole',
+                'userFullName',
+                'userEmail',
+                'userPhoneNumber',
+                'userAddresses',
+                'userCart',
+                'userData'
+            ];
+
+            // Clear all authentication-related data from AsyncStorage
+            await AsyncStorage.multiRemove(keysToRemove);
+
+            // Call the onLogout function from props to update auth state
+            if (typeof onLogout === 'function') {
+                onLogout();
+            } else {
+                console.warn('onLogout is not a function');
+                // Fallback navigation if onLogout is not provided
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'SellerTabs' }],
+                });
+            }
+        } catch (error) {
+            console.log('Logout Failed', error);
+            Alert.alert(
+                'Error',
+                'Failed to log out. Please try again.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
 
     return (
         <View style={styles.accountSettingsContainer}>
             <Text style={styles.sectionTitle}>Account</Text>
 
             <SettingsSection
-                title="Personal Information"
-                icon="user"
+                title="Change Password"
+                icon="lock"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Personal Info')}
-            />
-
-            <SettingsSection
-                title="Payment Methods"
-                icon="credit-card"
-                hasChevron={true}
-                onPress={() => console.log('Navigate to Payment Methods')}
-            />
-
-            <SettingsSection
-                title="Shipping Information"
-                icon="truck"
-                hasChevron={true}
-                onPress={() => console.log('Navigate to Shipping Info')}
-            />
-
-            <SettingsSection
-                title="Tax Information"
-                icon="file-text"
-                hasChevron={true}
-                onPress={() => console.log('Navigate to Tax Info')}
+                onPress={() => setPasswordModalVisible(true)}
             />
 
             <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Preferences</Text>
@@ -172,13 +253,14 @@ const AccountSettings = () => {
                 icon="moon-o"
                 toggleEnabled={darkModeEnabled}
                 onToggle={setDarkModeEnabled}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <SettingsSection
                 title="Language"
                 icon="globe"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Language Settings')}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Help & Support</Text>
@@ -187,41 +269,62 @@ const AccountSettings = () => {
                 title="Help Center"
                 icon="question-circle"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Help Center')}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <SettingsSection
                 title="Contact Support"
                 icon="envelope"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to Contact Support')}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
             <SettingsSection
                 title="About"
                 icon="info-circle"
                 hasChevron={true}
-                onPress={() => console.log('Navigate to About')}
+                onPress={() => Alert.alert('Info', "Coming Soon")}
             />
 
-            <TouchableOpacity style={styles.logoutButton} onPress={() => console.log('Logout')}>
+            <TouchableOpacity
+                style={[
+                    styles.logoutButton,
+                    isLoggingOut && styles.logoutButtonDisabled
+                ]}
+                onPress={handleLogout}
+                disabled={isLoggingOut}
+            >
                 <FontAwesome name="sign-out" size={18} color="#e74c3c" />
-                <Text style={styles.logoutText}>Log Out</Text>
+                <Text style={styles.logoutText}>
+                    {isLoggingOut ? 'Logging out...' : 'Log Out'}
+                </Text>
             </TouchableOpacity>
+
+            {/* Personal Info Update Modal */}
+            <PersonalInfoUpdateModal
+                visible={personalInfoModalVisible}
+                onClose={() => setPersonalInfoModalVisible(false)}
+                userData={userData}
+                onSave={handleSavePersonalInfo}
+            />
+
+            {/* Password Update Modal */}
+            <PasswordUpdateModal
+                visible={passwordModalVisible}
+                onClose={() => setPasswordModalVisible(false)}
+            />
         </View>
     );
 };
 
-export default function SellerProfileScreen() {
+export default function SellerProfileScreen({ onLogout }) {
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar style="dark-content" backgroundColor="#fff" />
             <Header />
             <ScrollView showsVerticalScrollIndicator={false}>
                 <ProfileHeader />
-                <StoreStats />
-                <StoreInformation />
-                <AccountSettings />
+                <AccountSettings onLogout={onLogout} />
                 <View style={styles.footer} />
             </ScrollView>
         </SafeAreaView>

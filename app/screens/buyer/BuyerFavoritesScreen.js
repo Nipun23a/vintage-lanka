@@ -1,8 +1,21 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
+import {
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    TouchableOpacity,
+    Image,
+    Alert,
+    ActivityIndicator
+} from 'react-native';
 import { FontAwesome } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import Header from "../../components/Header";
+import {useEffect, useState} from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 // Section Title Component
 const SectionTitle = ({ title, actionText, onAction }) => {
@@ -61,84 +74,69 @@ const FavoriteItem = ({ item, onRemove, onPress }) => {
     );
 };
 
-// Recently Viewed Item Component
-const RecentlyViewedItem = ({ item, onPress, onFavorite }) => {
-    return (
-        <TouchableOpacity style={styles.recentItem} onPress={onPress}>
-            <Image source={{ uri: item.imageUri }} style={styles.recentImage} />
-            <View style={styles.recentInfo}>
-                <Text style={styles.recentName} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.recentPrice}>${item.price}</Text>
-            </View>
-            <TouchableOpacity
-                style={styles.recentFavoriteButton}
-                onPress={onFavorite}
-            >
-                <FontAwesome
-                    name={item.isFavorite ? "heart" : "heart-o"}
-                    size={18}
-                    color={item.isFavorite ? "#e74c3c" : "#666"}
-                />
-            </TouchableOpacity>
-        </TouchableOpacity>
-    );
-};
-
 export default function BuyerFavoritesScreen() {
     const navigation = useNavigation();
+    const [favourites,setFavourites] = useState([]);
+    const [loading,setLoading] = useState(true);
+    useEffect(() => {
 
-    // Sample data for favorites
-    const favorites = [
-        {
-            id: '1',
-            name: 'Vintage Typewriter 1950s',
-            price: '225.00',
-            condition: 'Very Good',
-            imageUri: 'https://images.unsplash.com/photo-1630012974522-7e683def2ae5?q=80&w=2127&auto=format&fit=crop&ixlib=rb-4.0.3'
-        },
-        {
-            id: '2',
-            name: 'Antique Camera Collection',
-            price: '350.00',
-            condition: 'Excellent',
-            imageUri: 'https://images.unsplash.com/photo-1679973957366-2f926a250629?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3'
-        },
-        {
-            id: '3',
-            name: 'Vintage Record Player',
-            price: '175.00',
-            condition: 'Good',
-            imageUri: 'https://images.unsplash.com/photo-1656870916547-9e6a8a17f6e7?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3'
+        const fetchFavorites = async () => {
+            try {
+                const userData = await AsyncStorage.getItem('userData');
+                if (!userData){
+                    Alert.alert('Error','User data is not found. Please log in again');
+                    return;
+                }
+                const parsedUserData = JSON.parse(userData);
+                const userId = parsedUserData.userId;
+
+                const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/favourites`)
+                setFavourites(response.data.favourites);
+            }catch (error){
+                console.error('Error fetching favorites:', error);
+            }finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFavorites();
+    }, []);
+
+    const handleRemoveFavorite = async (productId) => {
+        try {
+            const userDataString = await AsyncStorage.getItem('userData');
+            if (!userDataString) {
+                Alert.alert('Error', 'User not found. Please log in again.');
+                return;
+            }
+    
+            const { userId } = JSON.parse(userDataString);
+    
+            const response = await axios.delete(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/favourites/${productId}`);
+            if (response.status === 200) {
+                const updatedFavourites = favourites.filter(fav => fav._id !== productId);
+                setFavourites(updatedFavourites);
+    
+                // Optional: Update AsyncStorage if you're storing them there
+                const parsedUserData = JSON.parse(userDataString);
+                parsedUserData.userFavourites = JSON.stringify(updatedFavourites.map(f => f._id));
+                await AsyncStorage.setItem('userData', JSON.stringify(parsedUserData));
+            }
+        } catch (error) {
+            console.error('Error removing from favorites:', error);
+            Alert.alert('Error', 'Failed to remove item from favorites.');
         }
-    ];
-
-    // Sample data for recently viewed
-    const recentlyViewed = [
-        {
-            id: '4',
-            name: 'Antique Wooden Chair',
-            price: '135.00',
-            isFavorite: false,
-            imageUri: 'https://images.unsplash.com/photo-1601854266103-c1dd42130633?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3'
-        },
-        {
-            id: '5',
-            name: 'Classic Pocket Watch',
-            price: '95.00',
-            isFavorite: true,
-            imageUri: 'https://images.unsplash.com/photo-1603706580932-6befcf7d8044?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3'
-        },
-        {
-            id: '6',
-            name: 'Vintage Leather Suitcase',
-            price: '210.00',
-            isFavorite: false,
-            imageUri: 'https://images.unsplash.com/photo-1585155784229-aff921ccfa10?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3'
-        }
-    ];
-
+    };
     // Determine if we should show empty state or favorites list
-    const showFavorites = favorites.length > 0;
+    const showFavorites = favourites.length > 0;
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ActivityIndicator size="large" color="#000" />
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -158,12 +156,18 @@ export default function BuyerFavoritesScreen() {
                         />
 
                         <View style={styles.favoritesContainer}>
-                            {favorites.map(item => (
+                            {favourites.map(item => (
                                 <FavoriteItem
-                                    key={item.id}
-                                    item={item}
-                                    onRemove={() => console.log('Remove from favorites', item.id)}
-                                    onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+                                key={item._id}
+                                item={{
+                                    id: item._id,
+                                    name: item.title,
+                                    price: item.price.toFixed(2),
+                                    imageUri: item.mainImage,
+                                    condition: item.condition || 'N/A',
+                                }}
+                                    onRemove={() => handleRemoveFavorite(item._id)}
+                                    onPress={() => navigation.navigate('ProductDetails', { productId: item._id })}
                                 />
                             ))}
                         </View>
@@ -171,32 +175,6 @@ export default function BuyerFavoritesScreen() {
                 ) : (
                     <EmptyState />
                 )}
-
-                {recentlyViewed.length > 0 && (
-                    <>
-                        <SectionTitle
-                            title="Recently Viewed"
-                            actionText="View All"
-                            onAction={() => console.log('View all recently viewed')}
-                        />
-
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.recentlyViewedContainer}
-                        >
-                            {recentlyViewed.map(item => (
-                                <RecentlyViewedItem
-                                    key={item.id}
-                                    item={item}
-                                    onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-                                    onFavorite={() => console.log('Toggle favorite', item.id)}
-                                />
-                            ))}
-                        </ScrollView>
-                    </>
-                )}
-
                 <View style={styles.footer} />
             </ScrollView>
         </SafeAreaView>

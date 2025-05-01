@@ -3,6 +3,11 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import { FontAwesome } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import Header from "../../components/Header";
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+
+// API URL for products
+const API_URL = 'https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products';
 
 // Search Bar Component
 const SearchBar = () => {
@@ -23,7 +28,28 @@ const SearchBar = () => {
 
 // Category Selector Component
 const CategorySelector = () => {
-    const categories = ['All', 'Cloth', 'Electronic', 'Home', 'Decor', 'Books'];
+    const [categories, setCategories] = useState([{ name: 'All' }]);
+    const [activeIndex, setActiveIndex] = useState(0);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const response = await axios.get('https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/category');
+                // Handle the response structure where categories are in response.data.categories
+                if (response.data && response.data.categories && Array.isArray(response.data.categories)) {
+                    setCategories([{ name: 'All' }, ...response.data.categories]);
+                }
+            } catch (error) {
+                console.error('Error fetching categories', error);
+            }
+        };
+        fetchCategories();
+    }, []);
+
+    const handleCategoryPress = (index) => {
+        setActiveIndex(index);
+        // If you want, you can also trigger a function here when a category is selected
+    };
 
     return (
         <ScrollView
@@ -33,19 +59,20 @@ const CategorySelector = () => {
         >
             {categories.map((category, index) => (
                 <TouchableOpacity
-                    key={index}
+                    key={category._id || index}
                     style={[
                         styles.categoryButton,
-                        index === 0 ? styles.categoryButtonActive : null
+                        index === activeIndex ? styles.categoryButtonActive : null
                     ]}
+                    onPress={() => handleCategoryPress(index)}
                 >
                     <Text
                         style={[
                             styles.categoryButtonText,
-                            index === 0 ? styles.categoryButtonTextActive : null
+                            index === activeIndex ? styles.categoryButtonTextActive : null
                         ]}
                     >
-                        {category}
+                        {category.name}
                     </Text>
                 </TouchableOpacity>
             ))}
@@ -92,17 +119,26 @@ const CategoryBanners = () => {
 };
 
 // Product Item Component
-const ProductItem = ({ imageUri }) => {
-    const navigation = useNavigation()
+const ProductItem = ({ product }) => {
+    const navigation = useNavigation();
+    
     return (
-        <TouchableOpacity style={styles.productItem} onPress={() => navigation.navigate('ProductDetail')}>
+        <TouchableOpacity 
+            style={styles.productItem} 
+            onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
+        >
             <Image
-                source={{ uri: imageUri }}
+                source={{ uri: product.mainImage }}
                 style={styles.productImage}
             />
             <View style={styles.productInfo}>
-                <Text style={styles.productName}>Vintage Item</Text>
-                <Text style={styles.productPrice}>$125.00</Text>
+                <Text style={styles.productName}>{product.title}</Text>
+                <Text style={styles.productPrice}>
+                    {product.discountPrice ? `$${product.discountPrice.toFixed(2)}` : `$${product.price.toFixed(2)}`}
+                </Text>
+                {product.discountPrice && (
+                    <Text style={styles.originalPrice}>${product.price.toFixed(2)}</Text>
+                )}
             </View>
         </TouchableOpacity>
     );
@@ -110,19 +146,50 @@ const ProductItem = ({ imageUri }) => {
 
 // Product Grid Component
 const ProductGrid = () => {
-    const products = [
-        'https://images.unsplash.com/photo-1630012974522-7e683def2ae5?q=80&w=2127&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1679973957366-2f926a250629?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1656870916547-9e6a8a17f6e7?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1601854266103-c1dd42130633?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-        'https://images.unsplash.com/photo-1603706580932-6befcf7d8044?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3',
-        'https://images.unsplash.com/photo-1585155784229-aff921ccfa10?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3',
-    ];
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                setLoading(true);
+                const response = await axios.get(API_URL);
+                
+                if (response.data && response.data.products) {
+                    setProducts(response.data.products);
+                }
+                setLoading(false);
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                setError('Failed to load products');
+                setLoading(false);
+            }
+        };
+
+        fetchProducts();
+    }, []);
+
+    if (loading) {
+        return (
+            <View style={styles.loaderContainer}>
+                <Text>Loading products...</Text>
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.productGrid}>
-            {products.map((uri, index) => (
-                <ProductItem key={index} imageUri={uri} />
+            {products.map((product) => (
+                <ProductItem key={product._id} product={product} />
             ))}
         </View>
     );
@@ -135,7 +202,7 @@ export default function BuyerSearchScreen() {
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <Header
-                title="All Product"
+                title="All Products"
                 showBackButton={false}
                 onBackPress={() => navigation.goBack()}
             />
@@ -146,9 +213,6 @@ export default function BuyerSearchScreen() {
                 <CategoryBanners />
 
                 <SectionTitle title="All Items" />
-                <ProductGrid />
-
-                <SectionTitle title="Recent Listings" />
                 <ProductGrid />
 
                 <View style={styles.footer} />
@@ -278,7 +342,26 @@ const styles = StyleSheet.create({
         color: '#e74c3c',
         fontFamily: 'Montserrat_Bold',
     },
+    originalPrice: {
+        fontSize: 12,
+        color: '#999',
+        textDecorationLine: 'line-through',
+        marginTop: 2,
+        fontFamily: 'Montserrat_Regular',
+    },
     footer: {
         height: 20,
     },
+    loaderContainer: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    errorContainer: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    errorText: {
+        color: '#e74c3c',
+        fontFamily: 'Montserrat_Regular',
+    }
 });
