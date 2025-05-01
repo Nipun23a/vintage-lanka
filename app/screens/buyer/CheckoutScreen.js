@@ -165,7 +165,7 @@ export default function CheckoutScreen({ navigation, route }) {
     const [specialInstructions, setSpecialInstructions] = useState('');
 
     // API URL base - replace with your actual backend URL
-    const API_URL = 'http://192.168.8.151:5000';
+    const API_URL = 'https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com';
 
     // Calculate totals
     const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);

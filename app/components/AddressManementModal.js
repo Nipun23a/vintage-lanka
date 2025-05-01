@@ -15,7 +15,7 @@ import axios from 'axios';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Base URL for API calls - ensure this matches your server configuration
-const API_BASE_URL = 'http://192.168.8.151:5000/api/users';
+const API_BASE_URL = 'https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users';
 
 const AddressManagementModal = ({ visible, onClose }) => {
   const [addresses, setAddresses] = useState([]);

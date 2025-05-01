@@ -139,7 +139,7 @@ export default function TransactionHistoryScreen({ navigation }) {
                 const parsedUserData = JSON.parse(userData);
                 const userId = parsedUserData.userId;
 
-                const response = await axios.get(`http://192.168.8.151:5000/api/orders/${userId}/transactions`);
+                const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/orders/${userId}/transactions`);
                 
                 // Transform order data into transaction format
                 const transformedTransactions = transformOrdersToTransactions(response.data);

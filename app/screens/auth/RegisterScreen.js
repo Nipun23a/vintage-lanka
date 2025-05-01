@@ -143,7 +143,7 @@ export default function RegisterScreen({ navigation, route }) {
             
             const addresses = [];
 
-            const response = await axios.post('http://192.168.8.151:5000/api/users/register', {
+            const response = await axios.post('https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/register', {
                 fullname: fullName,
                 email,
                 password,

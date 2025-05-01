@@ -58,7 +58,7 @@ export default function CreateProductScreen({ navigation }) {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('http://192.168.8.151:5000/api/category');
+      const response = await axios.get('https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/category');
       if (response.data && response.data.categories) {
         setCategories(response.data.categories);
       } else {
@@ -211,7 +211,7 @@ export default function CreateProductScreen({ navigation }) {
 
       // Send the data to your API
       const response = await axios.post(
-        'http://192.168.8.151:5000/api/products',
+        'https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products',
         productData
       );
 

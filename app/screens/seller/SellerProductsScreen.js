@@ -44,7 +44,7 @@ export default function SellerProductsScreen() {
             const sellerId = userData.userId;
             
             // Make API request
-            const response = await axios.get(`http://192.168.8.151:5000/api/products/seller/${sellerId}`);
+            const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products/seller/${sellerId}`);
             
             // Transform data to match our component structure
             const transformedProducts = response.data.map(product => ({

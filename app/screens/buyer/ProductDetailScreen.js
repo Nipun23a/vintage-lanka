@@ -170,7 +170,7 @@ const SimilarProducts = ({ currentProductId, categoryId }) => {
             
             try {
                 setLoading(true);
-                const response = await axios.get('http://192.168.8.151:5000/api/products');
+                const response = await axios.get('https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products');
                 
                 if (response.data && response.data.products) {
                     // Filter products by the same category and exclude current product
@@ -318,7 +318,7 @@ export default function ProductDetailScreen() {
             try {
                 setLoading(true);
                 // Use your actual API endpoint here
-                const response = await axios.get(`http://192.168.8.151:5000/api/products/${productId}`);
+                const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products/${productId}`);
                 setProduct(response.data);
                 setLoading(false);
             } catch (err) {
@@ -348,10 +348,10 @@ export default function ProductDetailScreen() {
     
             if (newFavoriteState) {
                 // Add to favorites (POST request)
-                response = await axios.post(`http://192.168.8.151:5000/api/users/${userId}/favourites/${productId}`);
+                response = await axios.post(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/favourites/${productId}`);
             } else {
                 // Remove from favorites (DELETE request)
-                response = await axios.delete(`http://192.168.8.151:5000/api/users/${userId}/favourites/${productId}`);
+                response = await axios.delete(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/favourites/${productId}`);
             }
     
             if (response.status === 200) {
@@ -393,7 +393,7 @@ export default function ProductDetailScreen() {
 
     const handleAddToCart = async () => {
         try {
-            const response = await axios.post(`http://192.168.8.151:5000/api/users/${userId}/cart`,{
+            const response = await axios.post(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/cart`,{
                 productId
             });
             if (response.status === 200){

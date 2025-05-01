@@ -49,7 +49,7 @@ const StatsOverview = () => {
           if (parsedUserData && parsedUserData.userId) {
             const sellerId = parsedUserData.userId;
   
-            const response = await axios.get(`http://192.168.8.151:5000/api/orders/summary/${sellerId}`);
+            const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/orders/summary/${sellerId}`);
   
             if (response.data && response.data.data) {
               setStats(response.data.data);
@@ -164,7 +164,7 @@ const ActiveListings = () => {
             const userData = JSON.parse(userDataString);
             const sellerId = userData.userId;
 
-            const response = await axios.get(`http://192.168.8.151:5000/api/products/seller/${sellerId}`);
+            const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products/seller/${sellerId}`);
 
             const transformedProducts = response.data.map(product => ({
                 id: product._id,

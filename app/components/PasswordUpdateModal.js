@@ -78,7 +78,7 @@ const PasswordUpdateModal = ({ visible, onClose }) => {
         if (validateForm()) {
             try {
                 // Send a request to update the password
-                const response = await axios.patch(`http://192.168.8.151:5000/api/users/${userId}/password`, {
+                const response = await axios.patch(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/password`, {
                     oldPassword:currentPassword,
                     newPassword
                 });

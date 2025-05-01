@@ -8,8 +8,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API config
-const API_URL = 'http://192.168.8.151:5000/api/products';
-const PREFERENCES_API_URL = 'http://192.168.8.151:5000/api/products/preferences'; // Base preferences URL
+const API_URL = 'https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products';
+const PREFERENCES_API_URL = 'https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products/preferences'; // Base preferences URL
 
 const Header = () => {
     const navigation = useNavigation();

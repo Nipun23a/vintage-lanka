@@ -351,7 +351,7 @@ export default function SellerWalletScreen() {
     const fetchOrders = async (sellerId) => {
         setLoading(true);
         try {
-            const response = await fetch(`http://192.168.8.151:5000/api/orders/${sellerId}/seller`);
+            const response = await fetch(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/orders/${sellerId}/seller`);
             const data = await response.json();
             
             if (data && data.orders) {

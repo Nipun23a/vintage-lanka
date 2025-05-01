@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 // API URL for products
-const API_URL = 'http://192.168.8.151:5000/api/products';
+const API_URL = 'https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/products';
 
 // Search Bar Component
 const SearchBar = () => {
@@ -34,7 +34,7 @@ const CategorySelector = () => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await axios.get('http://192.168.8.151:5000/api/category');
+                const response = await axios.get('https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/category');
                 // Handle the response structure where categories are in response.data.categories
                 if (response.data && response.data.categories && Array.isArray(response.data.categories)) {
                     setCategories([{ name: 'All' }, ...response.data.categories]);

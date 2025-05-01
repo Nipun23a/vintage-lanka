@@ -158,7 +158,7 @@ export default function CartScreen({ navigation }) {
     const fetchCartItems = async () => {
         try {
             setIsLoading(true);
-            const response = await axios.get(`http://192.168.8.151:5000/api/users/${userId}/cart`);
+            const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/cart`);
             
             if (response.status === 200) {
                 // Extract cart items from the response
@@ -203,7 +203,7 @@ export default function CartScreen({ navigation }) {
             setCartItems(updatedCart);
             
             // Update on the server
-            await axios.post(`http://192.168.8.151:5000/api/users/${userId}/cart`, {
+            await axios.post(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/cart`, {
                 cart: updatedCart
             });
             

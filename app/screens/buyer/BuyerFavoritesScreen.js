@@ -90,7 +90,7 @@ export default function BuyerFavoritesScreen() {
                 const parsedUserData = JSON.parse(userData);
                 const userId = parsedUserData.userId;
 
-                const response = await axios.get(`http://192.168.8.151:5000/api/users/${userId}/favourites`)
+                const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/favourites`)
                 setFavourites(response.data.favourites);
             }catch (error){
                 console.error('Error fetching favorites:', error);
@@ -112,7 +112,7 @@ export default function BuyerFavoritesScreen() {
     
             const { userId } = JSON.parse(userDataString);
     
-            const response = await axios.delete(`http://192.168.8.151:5000/api/users/${userId}/favourites/${productId}`);
+            const response = await axios.delete(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/${userId}/favourites/${productId}`);
             if (response.status === 200) {
                 const updatedFavourites = favourites.filter(fav => fav._id !== productId);
                 setFavourites(updatedFavourites);

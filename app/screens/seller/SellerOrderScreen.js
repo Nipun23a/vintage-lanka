@@ -52,7 +52,7 @@ export default function SellerOrdersScreen() {
     const fetchOrders = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`http://192.168.8.151:5000/api/orders/${userId}/seller`);
+            const response = await axios.get(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/orders/${userId}/seller`);
             
             // Process the orders data to match our component's expected format
             const processedOrders = response.data.orders.map(order => {
@@ -187,7 +187,7 @@ export default function SellerOrdersScreen() {
                         onPress: async () => {
                             try {
                                 // Use order.id instead of order._id and update orderStatus instead of status
-                                await axios.patch(`http://192.168.8.151:5000/api/orders/${order.id}`, {
+                                await axios.patch(`https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/orders/${order.id}`, {
                                     status: newStatus
                                 });
     

@@ -22,7 +22,7 @@ export default function LoginScreen({ navigation, onLogin }) {
         }
 
         try {
-            const response = await axios.post('http://192.168.8.151:5000/api/users/login',{
+            const response = await axios.post('https://vintage-lanka-backend-f1fa6938e3e3.herokuapp.com/api/users/login',{
                 email,password
             });
 

@@ -1,6 +1,6 @@
-const Product = require('../models/ProductModel');
-const Category = require('../models/CategoryModel');
-const User = require('../models/UserModel');
+const Product = require('../models/productModel');
+const Category = require('../models/categoryModel');
+const User = require('../models/userModel');
 const Order = require('../models/orderModel');
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
