@@ -6,7 +6,8 @@ const {
     getProductById,
     updateProduct,
     deleteProduct,
-    getAllProducts
+    getAllProducts,
+    getUserProductPreferences
 } = require('../controller/productController');
 router.get('/',getAllProducts);
 // Create a new product
@@ -18,6 +19,8 @@ router.get('/seller/:sellerId', getProductsBySeller);
 
 // Get a single product by product ID
 router.get('/:productId', getProductById);
+
+router.get('/preferences/:userId',getUserProductPreferences);
 
 // Update a product by product ID
 router.put('/:productId', updateProduct);

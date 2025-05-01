@@ -269,267 +269,129 @@ exports.removeFavourite = async (req, res) => {
 
 exports.addAddress = async (req, res) => {
     try {
-        const userId = req.params.id;
-        const newAddress = req.body;
-        
+        const { userId } = req.params;
+        const { street, city, state, zipCode, country } = req.body;
+
+        // Validate required fields
+        if (!street || !city || !state || !zipCode || !country) {
+            return res.status(400).json({ message: 'All address fields are required' });
+        }
+
         // Find the user
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Add the new address
-        user.addresses.push(newAddress);
-        
-        // If the new address is set as default, update other addresses
-        if (newAddress.isDefault) {
-            user.addresses.forEach((address, index) => {
-                // Skip the newly added address (which is the last one)
-                if (index !== user.addresses.length - 1) {
-                    address.isDefault = false;
-                }
-            });
-        }
+        // Create new address
+        const newAddress = {
+            street,
+            city,
+            state,
+            zipCode,
+            country
+        };
 
+        // Add address to user's addresses array
+        user.addresses.push(newAddress);
         await user.save();
+
+        // Return the new address with its ID
+        const addedAddress = user.addresses[user.addresses.length - 1];
         
-        res.status(200).json({ 
-            message: 'Address added successfully', 
-            addresses: user.addresses 
+        res.status(201).json({ 
+            message: 'Address added successfully',
+            address: addedAddress
         });
     } catch (error) {
         res.status(500).json({ 
             message: 'Error adding address', 
             error: error.message 
         });
-        console.log(error.message);
     }
 };
 
-// Update Address Controller
 exports.updateAddress = async (req, res) => {
     try {
-        const userId = req.params.userId;
-        const addressId = req.params.addressId;
-        const updatedAddressData = req.body;
-        
+        const { userId, addressId } = req.params;
+        const { street, city, state, zipCode, country } = req.body;
+
         // Find the user
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        
+
+        // Find the address in the user's addresses array
+        const address = user.addresses.id(addressId);
+        if (!address) {
+            return res.status(404).json({ message: 'Address not found' });
+        }
+
+        // Update address fields if provided
+        if (street !== undefined) address.street = street;
+        if (city !== undefined) address.city = city;
+        if (state !== undefined) address.state = state;
+        if (zipCode !== undefined) address.zipCode = zipCode;
+        if (country !== undefined) address.country = country;
+
+        // Save the updated user
+        await user.save();
+
+        res.status(200).json({
+            message: 'Address updated successfully',
+            address: address
+        });
+    } catch (error) {
+        console.error('Error updating address:', error);
+        res.status(500).json({
+            message: 'Error updating address',
+            error: error.message
+        });
+    }
+};
+
+
+exports.deleteAddress = async (req, res) => {
+    try {
+        const { userId, addressId } = req.params;
+
+        // Find the user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
         // Find the address
-        if (!user.addresses.id) {
-            return res.status(404).json({ message: 'Address not found' });
-        }
-        
-        // Find the index of the address to update
-        const addressIndex = user.addresses.findIndex(
-            addr => addr._id.toString() === addressId
-        );
-        
-        if (addressIndex === -1) {
-            return res.status(404).json({ message: 'Address not found' });
-        }
-        
-        // Update the address
-        user.addresses[addressIndex] = {
-            ...user.addresses[addressIndex].toObject(),
-            ...updatedAddressData
-        };
-        
-        // If the updated address is set as default, update other addresses
-        if (updatedAddressData.isDefault) {
-            user.addresses.forEach((address, index) => {
-                if (index !== addressIndex) {
-                    address.isDefault = false;
-                }
-            });
-        }
-        
-        await user.save();
-        
-        res.status(200).json({ 
-            message: 'Address updated successfully', 
-            addresses: user.addresses 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            message: 'Error updating address', 
-            error: error.message 
-        });
-        console.log(error.message);
-    }
-};
-
-// Delete Address Controller
-exports.deleteAddress = async (req, res) => {
-    try {
-        const userId = req.params.userId;
-        const addressId = req.params.addressId;
-        
-        // Find the user
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-        
-        // Find the index of the address to delete
-        const addressIndex = user.addresses.findIndex(
-            addr => addr._id.toString() === addressId
-        );
-        
-        if (addressIndex === -1) {
-            return res.status(404).json({ message: 'Address not found' });
-        }
-        
-        // Check if the address to be deleted is the default one
-        const isDefaultBeingDeleted = user.addresses[addressIndex].isDefault;
-        
-        // Remove the address
-        user.addresses.splice(addressIndex, 1);
-        
-        // If the deleted address was the default and there are other addresses,
-        // set the first remaining address as default
-        if (isDefaultBeingDeleted && user.addresses.length > 0) {
-            user.addresses[0].isDefault = true;
-        }
-        
-        await user.save();
-        
-        res.status(200).json({ 
-            message: 'Address deleted successfully', 
-            addresses: user.addresses 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            message: 'Error deleting address', 
-            error: error.message 
-        });
-        console.log(error.message);
-    }
-};
-
-// Update User Addresses (Bulk Update)
-exports.updateUserAddresses = async (req, res) => {
-    try {
-        const userId = req.params.id;
-        const { addresses } = req.body;
-        
-        if (!addresses || !Array.isArray(addresses)) {
-            return res.status(400).json({ message: 'Addresses must be provided as an array' });
-        }
-        
-        // Find the user
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-        
-        // Replace all addresses
-        user.addresses = addresses;
-        
-        // Ensure there's only one default address
-        let hasDefault = false;
-        user.addresses.forEach((address) => {
-            if (address.isDefault) {
-                if (hasDefault) {
-                    address.isDefault = false;
-                } else {
-                    hasDefault = true;
-                }
-            }
-        });
-        
-        // If no default was set and there are addresses, set the first one as default
-        if (!hasDefault && user.addresses.length > 0) {
-            user.addresses[0].isDefault = true;
-        }
-        
-        await user.save();
-        
-        res.status(200).json({ 
-            message: 'Addresses updated successfully', 
-            addresses: user.addresses 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            message: 'Error updating addresses', 
-            error: error.message 
-        });
-        console.log(error.message);
-    }
-};
-
-exports.createAddress = async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const newAddress = req.body;
-
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        user.addresses.push(newAddress);
-        await user.save();
-
-        res.status(201).json({ message: 'Address added successfully', addresses: user.addresses });
-    } catch (error) {
-        res.status(500).json({ message: 'Error adding address', error: error.message });
-    }
-};
-
-exports.getAddresses = async (req, res) => {
-    try {
-        const { userId } = req.params;
-
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        res.status(200).json({ addresses: user.addresses });
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching addresses', error: error.message });
-    }
-};
-
-exports.updateAddress = async (req, res) => {
-    try {
-        const { userId, addressId } = req.params;
-        const updatedData = req.body;
-
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
         const address = user.addresses.id(addressId);
-        if (!address) return res.status(404).json({ message: 'Address not found' });
+        if (!address) {
+            return res.status(404).json({ message: 'Address not found' });
+        }
 
-        Object.assign(address, updatedData);
+        // Remove the address - IMPORTANT: Use pull for Mongoose subdocuments
+        user.addresses.pull(addressId);
+        
+        // Save the updated user
         await user.save();
 
-        res.status(200).json({ message: 'Address updated successfully', address });
+        res.status(200).json({
+            message: 'Address deleted successfully'
+        });
     } catch (error) {
-        res.status(500).json({ message: 'Error updating address', error: error.message });
+        console.error('Error deleting address:', error);
+        res.status(500).json({
+            message: 'Error deleting address',
+            error: error.message
+        });
     }
 };
 
 
-exports.deleteAddress = async (req, res) => {
-    try {
-        const { userId, addressId } = req.params;
 
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
 
-        const address = user.addresses.id(addressId);
-        if (!address) return res.status(404).json({ message: 'Address not found' });
 
-        address.remove();
-        await user.save();
 
-        res.status(200).json({ message: 'Address deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting address', error: error.message });
-    }
-};
+
+
 
 

@@ -7,23 +7,65 @@ const mongoose = require('mongoose');
 // Create a new Order
 exports.createOrder = async (req, res) => {
     try {
-        const { buyer, orderItems, shippingAddress, totalAmount } = req.body;
-
+        const { buyer, orderItems, shippingAddress, totalAmount, paymentStatus, orderStatus } = req.body;
+        
+        // Validate required fields
+        if (!buyer) {
+            return res.status(400).json({ message: 'Buyer ID is required' });
+        }
+        
         if (!orderItems || orderItems.length === 0) {
             return res.status(400).json({ message: 'No order items provided' });
         }
-
+        
+        if (!shippingAddress) {
+            return res.status(400).json({ message: 'Shipping address is required' });
+        }
+        
+        // Validate shipping address
+        const requiredAddressFields = ['street', 'city', 'state', 'zipCode', 'country'];
+        for (const field of requiredAddressFields) {
+            if (!shippingAddress[field]) {
+                return res.status(400).json({ message: `Shipping address ${field} is required` });
+            }
+        }
+        
+        // No need to transform orderItems as frontend is now sending correct format
+        // with 'product' field instead of 'productId'
+        
+        // Create new order with the provided data
         const order = new Order({
             buyer,
             orderItems,
             shippingAddress,
             totalAmount,
+            paymentStatus: paymentStatus || 'Pending',
+            orderStatus: orderStatus || 'Pending'
         });
-
+        
         const savedOrder = await order.save();
-        res.status(201).json({ message: 'Order created successfully', order: savedOrder });
+        
+        // Return detailed response with order data
+        res.status(201).json({
+            message: 'Order created successfully',
+            order: savedOrder
+        });
     } catch (error) {
-        res.status(500).json({ message: 'Error creating order', error: error.message });
+        console.log('Error creating order:', error);
+        
+        // Check for validation errors
+        if (error.name === 'ValidationError') {
+            const validationErrors = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({
+                message: 'Validation failed',
+                errors: validationErrors
+            });
+        }
+        
+        res.status(500).json({
+            message: 'Error creating order',
+            error: error.message
+        });
     }
 };
 

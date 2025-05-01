@@ -1,6 +1,7 @@
 const Product = require('../models/ProductModel');
 const Category = require('../models/CategoryModel');
 const User = require('../models/UserModel');
+const Order = require('../models/orderModel');
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 
@@ -63,6 +64,66 @@ exports.getAllProducts = async (req, res) => {
         });
     }
 };
+
+
+exports.getUserProductPreferences = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Step 1: Get all orders placed by the user
+        const orders = await Order.find({ buyer: userId }).populate('orderItems.product');
+
+        if (!orders || orders.length === 0) {
+            return res.status(404).json({ message: 'No orders found for this user' });
+        }
+
+        // Step 2: Aggregate product purchases
+        const productQuantities = {};
+
+        orders.forEach(order => {
+            order.orderItems.forEach(item => {
+                const productId = item.product._id.toString();
+                if (!productQuantities[productId]) {
+                    productQuantities[productId] = 0;
+                }
+                productQuantities[productId] += item.quantity;
+            });
+        });
+
+        if (Object.keys(productQuantities).length === 0) {
+            return res.status(404).json({ message: 'No products purchased by the user' });
+        }
+
+        // Step 3: Determine favorite and least favorite products
+        const sortedProducts = Object.entries(productQuantities)
+            .sort((a, b) => b[1] - a[1]); // Sort by quantity descending
+
+        const favoriteProductId = sortedProducts[0][0];
+        const leastFavoriteProductId = sortedProducts[sortedProducts.length - 1][0];
+
+        const favoriteProduct = await Product.findById(favoriteProductId)
+            .populate('category', 'name')
+            .populate('seller', 'username email');
+
+        const leastFavoriteProduct = await Product.findById(leastFavoriteProductId)
+            .populate('category', 'name')
+            .populate('seller', 'username email');
+
+        res.status(200).json({
+            message: 'User buying pattern analyzed successfully',
+            favoriteProduct,
+            leastFavoriteProduct,
+        });
+
+    } catch (error) {
+        console.error('Error analyzing buying pattern:', error);
+        res.status(500).json({
+            message: 'Error analyzing buying pattern',
+            error: error.message,
+        });
+    }
+};
+
 
 // Get all products by seller ID
 exports.getProductsBySeller = async (req, res) => {

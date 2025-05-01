@@ -5,9 +5,11 @@ import { useFonts } from 'expo-font';
 import { useNavigation } from "@react-navigation/native";
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API config
 const API_URL = 'http://192.168.8.151:5000/api/products';
+const PREFERENCES_API_URL = 'http://192.168.8.151:5000/api/products/preferences'; // Base preferences URL
 
 const Header = () => {
     const navigation = useNavigation();
@@ -140,49 +142,47 @@ const ProductItem = ({ product }) => {
     );
 };
 
-// Product Grid Component
-const ProductGrid = () => {
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        // Fetch products from API
-        const fetchProducts = async () => {
-            try {
-                const response = await axios.get(API_URL);
-                setProducts(response.data.products);
-                setLoading(false);
-            } catch (err) {
-                console.error('Error fetching products:', err);
-                setError('Failed to load products. Please try again later.');
-                setLoading(false);
-            }
-        };
-
-        fetchProducts();
-    }, []);
-
-    if (loading) {
-        return (
-            <View style={styles.loaderContainer}>
-                <ActivityIndicator size="large" color="#000" />
-                <Text style={styles.loaderText}>Loading products...</Text>
+// Recommendation Banner Component
+const RecommendationBanner = ({ title, product }) => {
+    const navigation = useNavigation();
+    
+    const handlePress = () => {
+        navigation.navigate('ProductDetails', { productId: product._id });
+    };
+    
+    return (
+        <TouchableOpacity style={styles.recommendationBanner} onPress={handlePress}>
+            <Image
+                source={{ uri: product.mainImage }}
+                style={styles.recommendationImage}
+                resizeMode="cover"
+            />
+            <View style={styles.recommendationOverlay}>
+                <View style={styles.recommendationContent}>
+                    <Text style={styles.recommendationLabel}>{title}</Text>
+                    <Text style={styles.recommendationTitle} numberOfLines={2}>{product.title}</Text>
+                    <View style={styles.recommendationPrice}>
+                        {product.discountPrice ? (
+                            <Text style={styles.recommendationDiscountPrice}>${product.discountPrice}</Text>
+                        ) : (
+                            <Text style={styles.recommendationPriceText}>${product.price}</Text>
+                        )}
+                    </View>
+                    <TouchableOpacity style={styles.viewButton} onPress={handlePress}>
+                        <Text style={styles.viewButtonText}>View Item</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        );
-    }
+        </TouchableOpacity>
+    );
+};
 
-    if (error) {
+// Product Grid Component
+const ProductGrid = ({ products }) => {
+    if (!products || products.length === 0) {
         return (
-            <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity style={styles.retryButton} onPress={() => {
-                    setLoading(true);
-                    setError(null);
-                    fetchProducts();
-                }}>
-                    <Text style={styles.retryButtonText}>Try Again</Text>
-                </TouchableOpacity>
+            <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No products available</Text>
             </View>
         );
     }
@@ -198,63 +198,155 @@ const ProductGrid = () => {
 
 export default function BuyerHomeScreen() {
     const [productsData, setProductsData] = useState([]);
+    const [preferences, setPreferences] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [userId, setUserId] = useState(null);
 
+    // Get user ID from AsyncStorage
     useEffect(() => {
-        // Fetch all products for different sections
-        const fetchProducts = async () => {
+        const getUserId = async () => {
             try {
-                const response = await axios.get(API_URL);
-                setProductsData(response.data.products);
+                const storedUserId = await AsyncStorage.getItem('userId');
+                if (storedUserId) {
+                    setUserId(storedUserId);
+                }
+            } catch (err) {
+                console.error('Error getting user ID from storage:', err);
+            }
+        };
+
+        getUserId();
+    }, []);
+
+    // Fetch products and user preferences
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Fetch all products
+                const productsResponse = await axios.get(API_URL);
+                setProductsData(productsResponse.data.products);
+                
+                // Fetch user preferences if userId is available
+                if (userId) {
+                    try {
+                        const preferencesResponse = await axios.get(`${PREFERENCES_API_URL}/${userId}`);
+                        setPreferences(preferencesResponse.data);
+                    } catch (prefErr) {
+                        console.log('No preferences found or error fetching preferences, using default data');
+                        // If no preferences found, we'll use the default data in the next fetch
+                        const defaultPreferencesResponse = await axios.get(API_URL);
+                        if (defaultPreferencesResponse.data.products && defaultPreferencesResponse.data.products.length >= 2) {
+                            // Create a mock preferences object with the first two products
+                            setPreferences({
+                                favoriteProduct: defaultPreferencesResponse.data.products[0],
+                                leastFavoriteProduct: defaultPreferencesResponse.data.products[1]
+                            });
+                        }
+                    }
+                } else {
+                    // If no userId, use default data
+                    if (productsResponse.data.products && productsResponse.data.products.length >= 2) {
+                        setPreferences({
+                            favoriteProduct: productsResponse.data.products[0],
+                            leastFavoriteProduct: productsResponse.data.products[1]
+                        });
+                    }
+                }
+                
                 setLoading(false);
             } catch (err) {
-                console.error('Error fetching products:', err);
-                setError('Failed to load products');
+                console.error('Error fetching data:', err);
+                setError('Failed to load data. Please try again later.');
                 setLoading(false);
             }
         };
 
-        fetchProducts();
-    }, []);
+        fetchData();
+    }, [userId]);
 
-    // Render different sections based on products
-    const renderProductSections = () => {
-        if (loading) {
-            return (
+    // Render user recommendations section
+    const renderRecommendations = () => {
+        if (!preferences) return null;
+        
+        return (
+            <View style={styles.recommendationsSection}>
+                <RecommendationBanner 
+                    title="Based on your favorites" 
+                    product={preferences.favoriteProduct} 
+                />
+                
+                <View style={styles.spacer} />
+                
+                <RecommendationBanner 
+                    title="You might also like" 
+                    product={preferences.leastFavoriteProduct} 
+                />
+            </View>
+        );
+    };
+
+    // Get new arrivals (most recent products)
+    const getNewArrivals = () => {
+        if (!productsData || productsData.length === 0) return [];
+        
+        // Sort products by creation date (newest first) and take first 4
+        return [...productsData]
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 4);
+    };
+
+    // Get featured items (products with reviews)
+    const getFeaturedItems = () => {
+        if (!productsData || productsData.length === 0) return [];
+        
+        // Filter products that have reviews and sort by rating
+        return [...productsData]
+            .filter(product => product.reviews && product.reviews.length > 0)
+            .sort((a, b) => {
+                const aRating = a.reviews.reduce((sum, review) => sum + review.rating, 0) / a.reviews.length;
+                const bRating = b.reviews.reduce((sum, review) => sum + review.rating, 0) / b.reviews.length;
+                return bRating - aRating;
+            })
+            .slice(0, 4);
+    };
+
+    // Render loading state
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
                 <View style={styles.loaderContainer}>
                     <ActivityIndicator size="large" color="#000" />
                     <Text style={styles.loaderText}>Loading products...</Text>
                 </View>
-            );
-        }
+            </SafeAreaView>
+        );
+    }
 
-        if (error) {
-            return (
+    // Render error state
+    if (error) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>{error}</Text>
+                    <TouchableOpacity 
+                        style={styles.retryButton} 
+                        onPress={() => {
+                            setLoading(true);
+                            setError(null);
+                            // Re-fetch data
+                            fetchData();
+                        }}
+                    >
+                        <Text style={styles.retryButtonText}>Try Again</Text>
+                    </TouchableOpacity>
                 </View>
-            );
-        }
-
-        return (
-            <>
-                <SectionTitle title="New Arrivals" />
-                <View style={styles.productGrid}>
-                    {productsData.slice(0, 2).map((product) => (
-                        <ProductItem key={product._id} product={product} />
-                    ))}
-                </View>
-
-                <SectionTitle title="Featured Items" />
-                <View style={styles.productGrid}>
-                    {productsData.map((product) => (
-                        <ProductItem key={product._id} product={product} />
-                    ))}
-                </View>
-            </>
+            </SafeAreaView>
         );
-    };
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -262,9 +354,21 @@ export default function BuyerHomeScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
                 <Header />
                 <HeroBanner />
+                
+                {/* Personalized recommendations based on user preferences */}
+                {renderRecommendations()}
+                
                 <FeaturedBanners />
                 <CategoryBanners />
-                {renderProductSections()}
+                
+                {/* New Arrivals Section */}
+                <SectionTitle title="New Arrivals" />
+                <ProductGrid products={getNewArrivals()} />
+                
+                {/* Featured Items Section */}
+                <SectionTitle title="Featured Items" />
+                <ProductGrid products={getFeaturedItems()} />
+                
                 <View style={styles.footer} />
             </ScrollView>
         </SafeAreaView>
@@ -486,5 +590,74 @@ const styles = StyleSheet.create({
     },
     footer: {
         height: 20,
+    },
+    recommendationsSection: {
+        marginBottom: 20,
+    },
+    recommendationBanner: {
+        marginHorizontal: 20,
+        height: 180,
+        borderRadius: 15,
+        overflow: 'hidden',
+        position: 'relative',
+    },
+    recommendationImage: {
+        width: '100%',
+        height: '100%',
+        position: 'absolute',
+    },
+    recommendationOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'flex-end',
+    },
+    recommendationContent: {
+        padding: 15,
+    },
+    recommendationLabel: {
+        color: '#fff',
+        fontSize: 12,
+        marginBottom: 5,
+        opacity: 0.9,
+        fontFamily:'Montserrat_Regular'
+    },
+    recommendationTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        fontFamily:'Montserrat_Bold',
+    },
+    recommendationPrice: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        fontFamily:'Montserrat_Bold',
+    },
+    recommendationPriceText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+        fontFamily:'Montserrat_Bold',
+    },
+    recommendationDiscountPrice: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    viewButton: {
+        backgroundColor: '#fff',
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+    },
+    viewButtonText: {
+        color: '#000',
+        fontWeight: '600',
+        fontSize: 12,
+    },
+    spacer: {
+        height: 15,
     },
 });

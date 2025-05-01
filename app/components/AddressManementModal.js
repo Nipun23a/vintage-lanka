@@ -14,13 +14,13 @@ import { FontAwesome } from "@expo/vector-icons";
 import axios from 'axios';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Base URL for API calls - replace with your actual API base URL
+// Base URL for API calls - ensure this matches your server configuration
 const API_BASE_URL = 'http://192.168.8.151:5000/api/users';
 
 const AddressManagementModal = ({ visible, onClose }) => {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [currentAddress, setCurrentAddress] = useState({
     street: '',
@@ -31,67 +31,88 @@ const AddressManagementModal = ({ visible, onClose }) => {
     _id: null
   });
 
-  // Load user ID and addresses on component mount
+  // Load user data from AsyncStorage on component mount or when modal visibility changes
   useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const userData = await AsyncStorage.getItem('userData');
-        if (userData) {
-          const parsedUserData = JSON.parse(userData);
-          setUserId(parsedUserData.userId);
-          if (visible) {
-            fetchAddresses(parsedUserData.userId);
-          }
-        }
-      } catch (error) {
-        console.log('Error loading user data:', error);
-      }
-    };
-
-    loadUserData();
+    if (visible) {
+      loadUserData();
+    }
   }, [visible]);
 
-  // Fetch addresses from API
-  const fetchAddresses = async (userId) => {
-    if (!userId) return;
-    
-    setLoading(true);
+  // Load user data from AsyncStorage
+  const loadUserData = async () => {
     try {
-      // Using hardcoded API endpoint as requested
-      const response = await axios.get(`${API_BASE_URL}/${userId}/addresses`);
-      setAddresses(response.data);
+      setLoading(true);
+      const storedUserData = await AsyncStorage.getItem('userData');
+      if (storedUserData) {
+        const parsedUserData = JSON.parse(storedUserData);
+        setUserData(parsedUserData);
+        
+        // Parse addresses from AsyncStorage
+        if (parsedUserData.userAddresses) {
+          const parsedAddresses = JSON.parse(parsedUserData.userAddresses);
+          setAddresses(parsedAddresses);
+        }
+      }
     } catch (error) {
-      console.log('Error fetching addresses:', error);
-      Alert.alert('Error', 'Failed to load addresses. Please try again.');
-      
-      // For demo purposes: use mock data if API fails
-      setAddresses([
-        { _id: '1', street: '123 Main St', city: 'New York', state: 'NY', zipCode: '10001', country: 'USA' },
-        { _id: '2', street: '456 Oak Ave', city: 'Los Angeles', state: 'CA', zipCode: '90001', country: 'USA' }
-      ]);
+      console.log('Error loading user data:', error);
+      Alert.alert('Error', 'Failed to load user data. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Update AsyncStorage with new address data
+  const updateAsyncStorage = async (updatedAddresses) => {
+    try {
+      if (!userData) return;
+      
+      // Create updated userData object
+      const updatedUserData = {
+        ...userData,
+        userAddresses: JSON.stringify(updatedAddresses)
+      };
+      
+      // Update AsyncStorage
+      await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+      
+      // Update local state
+      setUserData(updatedUserData);
+      setAddresses(updatedAddresses);
+
+      console.log('AsyncStorage updated successfully');
+    } catch (error) {
+      console.log('Error updating AsyncStorage:', error);
+    }
+  };
+
   // Create a new address
   const createAddress = async () => {
-    if (!validateAddress()) return;
+    if (!validateAddress() || !userData?.userId) return;
     
     setLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/${userId}/addresses`, currentAddress);
-      fetchAddresses(userId);
+      console.log(`Calling API: ${API_BASE_URL}/${userData.userId}/addresses`);
+      // Call the API to create address
+      const response = await axios.post(
+        `${API_BASE_URL}/${userData.userId}/addresses`, 
+        currentAddress
+      );
+      
+      // Get the new address with its ID from response
+      const newAddress = response.data.address;
+      
+      // Update addresses array
+      const updatedAddresses = [...addresses, newAddress];
+      
+      // Update AsyncStorage
+      await updateAsyncStorage(updatedAddresses);
+      
+      // Reset form
       resetForm();
-      Alert.alert('Success', 'Address created successfully');
+      Alert.alert('Success', 'Address added successfully');
     } catch (error) {
       console.log('Error creating address:', error);
       Alert.alert('Error', 'Failed to create address. Please try again.');
-      
-      // For demo purposes: simulate success if API fails
-      const newAddress = { ...currentAddress, _id: Date.now().toString() };
-      setAddresses([...addresses, newAddress]);
-      resetForm();
     } finally {
       setLoading(false);
     }
@@ -99,24 +120,42 @@ const AddressManagementModal = ({ visible, onClose }) => {
 
   // Update an existing address
   const updateAddress = async () => {
-    if (!validateAddress() || !currentAddress._id) return;
+    if (!validateAddress() || !currentAddress._id || !userData?.userId) return;
     
     setLoading(true);
     try {
-      await axios.put(`${API_BASE_URL}/${userId}/addresses/${currentAddress._id}`, currentAddress);
-      fetchAddresses(userId);
+      console.log(`Updating address: ${API_BASE_URL}/${userData.userId}/addresses/${currentAddress._id}`);
+      console.log('Address data:', JSON.stringify(currentAddress));
+      
+      // Call the API to update address
+      const response = await axios.patch(
+        `${API_BASE_URL}/${userData.userId}/addresses/${currentAddress._id}`, 
+        {
+          street: currentAddress.street,
+          city: currentAddress.city,
+          state: currentAddress.state,
+          zipCode: currentAddress.zipCode,
+          country: currentAddress.country
+        }
+      );
+      
+      // Get the updated address from response
+      const updatedAddress = response.data.address;
+      
+      // Update addresses array
+      const updatedAddresses = addresses.map(addr => 
+        addr._id === currentAddress._id ? updatedAddress : addr
+      );
+      
+      // Update AsyncStorage
+      await updateAsyncStorage(updatedAddresses);
+      
+      // Reset form
       resetForm();
       Alert.alert('Success', 'Address updated successfully');
     } catch (error) {
       console.log('Error updating address:', error);
       Alert.alert('Error', 'Failed to update address. Please try again.');
-      
-      // For demo purposes: simulate success if API fails
-      const updatedAddresses = addresses.map(addr => 
-        addr._id === currentAddress._id ? currentAddress : addr
-      );
-      setAddresses(updatedAddresses);
-      resetForm();
     } finally {
       setLoading(false);
       setEditMode(false);
@@ -125,6 +164,8 @@ const AddressManagementModal = ({ visible, onClose }) => {
 
   // Delete an address
   const deleteAddress = async (addressId) => {
+    if (!userData?.userId) return;
+    
     Alert.alert(
       'Confirm Deletion',
       'Are you sure you want to delete this address?',
@@ -136,16 +177,32 @@ const AddressManagementModal = ({ visible, onClose }) => {
           onPress: async () => {
             setLoading(true);
             try {
-              await axios.delete(`${API_BASE_URL}/${userId}/addresses/${addressId}`);
-              fetchAddresses(userId);
+              console.log(`Deleting address: ${API_BASE_URL}/${userData.userId}/addresses/${addressId}`);
+              
+              // Call the API to delete address
+              await axios.delete(`${API_BASE_URL}/${userData.userId}/addresses/${addressId}`);
+              
+              console.log('Address deleted successfully on server');
+              
+              // Update addresses array
+              const updatedAddresses = addresses.filter(addr => addr._id !== addressId);
+              
+              // Update AsyncStorage
+              await updateAsyncStorage(updatedAddresses);
+              
               Alert.alert('Success', 'Address deleted successfully');
             } catch (error) {
               console.log('Error deleting address:', error);
-              Alert.alert('Error', 'Failed to delete address. Please try again.');
               
-              // For demo purposes: simulate success if API fails
-              const filteredAddresses = addresses.filter(addr => addr._id !== addressId);
-              setAddresses(filteredAddresses);
+              // If server fails but we want to update UI anyway (fallback)
+              if (error.response && error.response.status === 500) {
+                console.log('Server error, updating local state anyway');
+                const updatedAddresses = addresses.filter(addr => addr._id !== addressId);
+                await updateAsyncStorage(updatedAddresses);
+                Alert.alert('Note', 'Address removed from your device, but server update failed');
+              } else {
+                Alert.alert('Error', 'Failed to delete address. Please try again.');
+              }
             } finally {
               setLoading(false);
             }
@@ -324,153 +381,134 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)'
   },
   modalView: {
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '90%',
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 10,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 2
     },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 5,
+    elevation: 5
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    paddingBottom: 8,
+    marginBottom: 20
   },
   modalTitle: {
-    fontSize: 18,
-    fontFamily: 'Montserrat_Bold',
-    color: '#333',
+    fontSize: 20,
+    fontWeight: 'bold'
   },
   closeButton: {
-    padding: 8,
+    padding: 5
   },
   formContainer: {
     marginBottom: 20,
-    backgroundColor: '#f9f9f9',
-    padding: 16,
-    borderRadius: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 20
   },
   formTitle: {
     fontSize: 16,
-    fontFamily: 'Montserrat_Medium',
-    marginBottom: 12,
-    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 10
   },
   input: {
-    backgroundColor: '#fff',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    height: 45,
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 6,
-    marginBottom: 12,
-    fontSize: 14,
-    fontFamily: 'Montserrat_Regular',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 10
   },
   inputRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   inputHalf: {
-    width: '48%',
+    width: '48%'
   },
   formActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 8,
+    marginTop: 10
   },
   button: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 6,
-    minWidth: 100,
+    height: 40,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 10
   },
   saveButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#3498db'
   },
   saveButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Montserrat_Medium',
+    color: 'white',
+    fontWeight: 'bold'
   },
   cancelButton: {
-    backgroundColor: '#f5f5f5',
-    marginRight: 10,
+    backgroundColor: '#f1f1f1'
   },
   cancelButtonText: {
-    color: '#666',
-    fontSize: 14,
-    fontFamily: 'Montserrat_Medium',
+    color: '#333'
   },
   sectionTitle: {
     fontSize: 16,
-    fontFamily: 'Montserrat_Bold',
-    marginBottom: 12,
-    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 10
   },
   addressList: {
-    maxHeight: 200,
+    maxHeight: 300
   },
   addressCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
+    justifyContent: 'space-between',
+    padding: 15,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 5,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3498db'
   },
   addressContent: {
-    flex: 1,
+    flex: 1
   },
   addressText: {
     fontSize: 14,
-    fontFamily: 'Montserrat_Regular',
-    color: '#444',
-    marginBottom: 2,
+    marginBottom: 2
   },
   addressActions: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   actionButton: {
     padding: 8,
-    marginLeft: 5,
+    marginLeft: 5
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 30,
+    padding: 30
   },
   emptyStateText: {
     marginTop: 10,
-    color: '#999',
-    fontSize: 14,
-    fontFamily: 'Montserrat_Regular',
+    color: '#888',
+    fontSize: 16
   },
   loader: {
-    marginVertical: 20,
-  },
+    marginVertical: 20
+  }
 });
 
 export default AddressManagementModal;

@@ -134,6 +134,7 @@ export default function CheckoutScreen({ navigation, route }) {
     // Stripe initialization
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [loading, setLoading] = useState(false);
+    const [paymentSheetEnabled, setPaymentSheetEnabled] = useState(false);
     
     // User data state
     const [userId, setUserId] = useState(null);
@@ -146,11 +147,11 @@ export default function CheckoutScreen({ navigation, route }) {
     const [addresses, setAddresses] = useState([]);
     const [selectedAddress, setSelectedAddress] = useState(0);
 
-    // Mock data for payment methods
+    // Payment methods
     const [paymentMethods, setPaymentMethods] = useState([
         {
             name: 'Credit Card (Stripe)',
-            type: 'Visa',
+            type: 'Card',
             icon: 'credit-card'
         },
         {
@@ -162,6 +163,9 @@ export default function CheckoutScreen({ navigation, route }) {
     // State for selections
     const [selectedPayment, setSelectedPayment] = useState(0);
     const [specialInstructions, setSpecialInstructions] = useState('');
+
+    // API URL base - replace with your actual backend URL
+    const API_URL = 'http://192.168.8.151:5000';
 
     // Calculate totals
     const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -219,7 +223,7 @@ export default function CheckoutScreen({ navigation, route }) {
     const fetchCartItems = async (userId) => {
         try {
             setLoading(true);
-            const response = await axios.get(`http://192.168.8.151:5000/api/users/${userId}/cart`);
+            const response = await axios.get(`${API_URL}/api/users/${userId}/cart`);
             
             if (response.status === 200) {
                 // Check if response.data.cart exists and is an array
@@ -250,68 +254,105 @@ export default function CheckoutScreen({ navigation, route }) {
         }
     };
 
-    // Initialize Stripe payment sheet
+    // Initialize Stripe
     useEffect(() => {
-        initializePaymentSheet();
+        const initializeStripe = async () => {
+            await initStripe({
+                publishableKey: 'pk_test_51RJoQe2c3BXHFyvAaXEGMcUbLtpYtDxPK5wvFty3FSa3057oH24jOmP4BBqpLhqZIh1e6j3tenmCmLKPpRQzuLVB00mbiKvnZ9',
+                merchantIdentifier: 'merchant.com.vintageCollectibles',
+            });
+        };
+        
+        initializeStripe();
     }, []);
+
+    // Initialize payment sheet when cart or total changes
+    useEffect(() => {
+        if (cartItems.length > 0 && total > 0) {
+            initializePaymentSheet();
+        }
+    }, [cartItems, total]);
 
     // Function to fetch payment intent from your backend
     const fetchPaymentSheetParams = async () => {
-        // This would normally be an API call to your backend
-        // For demo purposes, we'll simulate a response
-
-        // In a real app, you'd replace this with an actual API call:
-        // const response = await fetch(`your-backend-url/create-payment-intent`, {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ amount: total * 100 }) // Convert to cents
-        // });
-        // const { paymentIntent, ephemeralKey, customer } = await response.json();
-
-        // Mocked response
-        return {
-            paymentIntent: 'pi_mock_payment_intent_id',
-            ephemeralKey: 'ek_mock_ephemeral_key',
-            customer: 'cus_mock_customer_id',
-            publishableKey: 'pk_test_your_publishable_key',
-        };
+        try {
+            // Make the actual API request to your backend
+            const response = await axios.post(`${API_URL}/create-payment-intent`, {
+                amount: total, // The backend will convert to cents
+            });
+            
+            // Return the client secret from your backend
+            return {
+                clientSecret: response.data.clientSecret,
+            };
+        } catch (error) {
+            console.error('Error fetching payment intent:', error);
+            Alert.alert('Payment Error', 'Failed to prepare payment. Please try again.');
+            throw error;
+        }
     };
 
     const initializePaymentSheet = async () => {
         try {
             setLoading(true);
 
-            // Fetch payment sheet parameters from your backend
-            const { paymentIntent, ephemeralKey, customer, publishableKey } =
-                await fetchPaymentSheetParams();
-
-            // Initialize Stripe
-            await initStripe({
-                publishableKey: publishableKey,
-                merchantIdentifier: 'merchant.com.yourdomain.app',
-                // Only include this if you need it for Apple Pay
-                // stripeAccountId: 'acct_12345678',
-            });
+            // Get the payment intent client secret from your server
+            const { clientSecret } = await fetchPaymentSheetParams();
 
             // Initialize the Payment Sheet
             const { error } = await initPaymentSheet({
-                paymentIntentClientSecret: paymentIntent,
-                customerEphemeralKeySecret: ephemeralKey,
-                customerId: customer,
+                paymentIntentClientSecret: clientSecret,
                 merchantDisplayName: 'Vintage Collectibles',
-                applePay: true,
-                googlePay: true,
-                style: 'alwaysLight',
-                testEnv: true, // Remove for production
+                allowsDelayedPaymentMethods: true,
+                defaultBillingDetails: {
+                    name: userData?.userFullName || '',
+                    address: addresses.length > 0 ? {
+                        city: addresses[selectedAddress].city,
+                        country: 'US',
+                        line1: addresses[selectedAddress].street,
+                        postalCode: addresses[selectedAddress].zip,
+                        state: addresses[selectedAddress].state,
+                    } : undefined,
+                }
             });
 
-            if (error) {
-                console.error('Error initializing payment sheet:', error);
-                Alert.alert('Error', 'Unable to initialize payment. Please try again.');
+            if (!error) {
+                setPaymentSheetEnabled(true);
+            } else {
+                console.error('Error initializing payment sheet:', error.message);
+                Alert.alert('Error', `Unable to initialize payment: ${error.message}`);
+                setPaymentSheetEnabled(false);
             }
         } catch (error) {
             console.error('Payment setup error:', error);
             Alert.alert('Error', 'Payment setup failed. Please try again.');
+            setPaymentSheetEnabled(false);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Handle payment using Stripe
+    const handleStripePayment = async () => {
+        try {
+            setLoading(true);
+            
+            // Present the payment sheet
+            const { error } = await presentPaymentSheet();
+            
+            if (error) {
+                console.error('Payment error:', error.message);
+                Alert.alert('Payment failed', error.message);
+                return false;
+            } else {
+                // Payment successful
+                console.log('Payment successful!');
+                return true;
+            }
+        } catch (error) {
+            console.error('Stripe payment process error:', error);
+            Alert.alert('Error', 'Payment process failed. Please try again.');
+            return false;
         } finally {
             setLoading(false);
         }
@@ -324,68 +365,109 @@ export default function CheckoutScreen({ navigation, route }) {
 
     // Handle place order
     const handlePlaceOrder = async () => {
-        // If selected payment is Card (Stripe)
-        if (selectedPayment === 0) {
-            try {
-                setLoading(true);
-                // Present the payment sheet
-                const { error } = await presentPaymentSheet();
-
-                if (error) {
-                    console.error('Payment error:', error);
-                    Alert.alert('Payment failed', error.message);
-                } else {
-                    // Payment successful
-                    processOrder();
-                    // Navigate to order confirmation
-                    navigation.navigate('OrderThankYou', {
-                        orderId: 'VL' + Math.floor(100000 + Math.random() * 900000),
-                        total: total.toFixed(2)
-                    });
+        if (cartItems.length === 0) {
+            Alert.alert('Error', 'Your cart is empty');
+            return;
+        }
+        
+        if (addresses.length === 0) {
+            Alert.alert('Error', 'Please add a shipping address');
+            return;
+        }
+        
+        try {
+            // If selected payment is Card (Stripe)
+            if (selectedPayment === 0) {
+                // Process Stripe payment
+                const paymentSuccessful = await handleStripePayment();
+                
+                if (paymentSuccessful) {
+                    const orderId = await processOrder('Credit Card (Stripe)');
+                    navigateToThankYou('Credit Card (Stripe)', orderId);
                 }
-            } catch (error) {
-                console.error('Payment process error:', error);
-                Alert.alert('Error', 'Payment process failed. Please try again.');
-            } finally {
-                setLoading(false);
+            } else {
+                // For cash on delivery
+                const orderId = await processOrder('Cash on Delivery');
+                navigateToThankYou('Cash on Delivery', orderId);
             }
-        } else {
-            // For cash on delivery
-            processOrder();
-            // Navigate to order confirmation
-            navigation.navigate('OrderThankYou', {
-                orderId: 'VL' + Math.floor(100000 + Math.random() * 900000),
-                total: total.toFixed(2),
-                paymentMethod: 'Cash on Delivery'
-            });
+        } catch (error) {
+            console.error('Order placement failed:', error);
+            // Alert was already shown in processOrder
         }
     };
 
-    const processOrder = async () => {
+    const processOrder = async (paymentMethodName) => {
         try {
-            // Create order object
+            setLoading(true);
+            
+            // Format shipping address according to the shippingAddressSchema
+            const formattedAddress = {
+                street: addresses[selectedAddress].street,
+                city: addresses[selectedAddress].city,
+                state: addresses[selectedAddress].state,
+                zipCode: addresses[selectedAddress].zip || 123456,
+                country: "US" // Adding required country field
+            };
+            
+            // Create order object matching the orderSchema structure
             const orderData = {
-                userId,
-                items: cartItems.map(item => ({
-                    productId: item.id,
+                buyer: userId,
+                orderItems: cartItems.map(item => ({
+                    product: item.id, // This is the MongoDB ObjectId of the product
                     quantity: item.quantity,
                     price: item.price
                 })),
-                shippingAddress: addresses[selectedAddress],
-                paymentMethod: paymentMethods[selectedPayment].name,
-                specialInstructions,
-                total
+                shippingAddress: formattedAddress,
+                totalAmount: total,
+                paymentStatus: paymentMethodName === 'Cash on Delivery' ? 'Pending' : 'Paid',
+                orderStatus: 'Pending'
+                // Note: specialInstructions is not in your schema, so removed it
             };
             
-            // In a real app, you would send this to your backend
-            console.log('Order processed:', orderData);
+            // Log the data being sent for debugging
+            console.log('Sending order data:', JSON.stringify(orderData, null, 2));
             
-            // Clear cart (optional)
-            await axios.delete(`http://192.168.8.151:5000/api/users/${userId}/cart`);
+            // Send order to your backend
+            const response = await axios.post(`${API_URL}/api/orders`, orderData);
             
+            if (response.status === 201 || response.status === 200) {
+                console.log('Order created successfully:', response.data);
+                // Clear cart after successful order creation
+                await axios.delete(`${API_URL}/api/users/${userId}/cart`);
+                // Return the order ID from the response
+                return response.data.order?._id || generateOrderId();
+            } else {
+                throw new Error('Failed to create order');
+            }
         } catch (error) {
-            console.error('Error processing order:', error);
+            // Log the full error response for debugging
+            console.error('Error processing order:', error.response?.data || error.message);
+            
+            // Display specific error message if available
+            if (error.response?.data?.message) {
+                Alert.alert('Order Error', error.response.data.message);
+            } else if (error.response?.data?.error) {
+                Alert.alert('Order Error', error.response.data.error);
+            } else {
+                Alert.alert('Order Error', 'Could not process your order. Please try again.');
+            }
+            
+            throw error;
+        } finally {
+            setLoading(false);
         }
+    };
+
+    const generateOrderId = () => {
+        return 'VL' + Math.floor(100000 + Math.random() * 900000);
+    };
+
+    const navigateToThankYou = (paymentMethodName, orderId = null) => {
+        navigation.navigate('OrderThankYou', {
+            orderId: orderId || generateOrderId(),
+            total: total.toFixed(2),
+            paymentMethod: paymentMethodName
+        });
     };
 
     return (
@@ -410,6 +492,12 @@ export default function CheckoutScreen({ navigation, route }) {
                 ) : (
                     <View style={styles.noAddressContainer}>
                         <Text style={styles.noAddressText}>No addresses found</Text>
+                        <TouchableOpacity 
+                            style={styles.addAddressButton}
+                            onPress={() => navigation.navigate('AddressBook')}
+                        >
+                            <Text style={styles.addAddressButtonText}>Add Address</Text>
+                        </TouchableOpacity>
                     </View>
                 )}
 
@@ -419,19 +507,6 @@ export default function CheckoutScreen({ navigation, route }) {
                     selectedMethod={selectedPayment}
                     onSelect={setSelectedPayment}
                 />
-
-                <SectionTitle title="Special Instructions" />
-                <View style={styles.specialInstructionsContainer}>
-                    <TextInput
-                        style={styles.specialInstructionsInput}
-                        value={specialInstructions}
-                        onChangeText={setSpecialInstructions}
-                        placeholder="Add any special instructions for delivery"
-                        multiline={true}
-                        numberOfLines={3}
-                    />
-                </View>
-
                 <OrderSummary
                     items={cartItems}
                     subtotal={subtotal}
@@ -445,9 +520,12 @@ export default function CheckoutScreen({ navigation, route }) {
 
             <View style={styles.placeOrderContainer}>
                 <TouchableOpacity
-                    style={styles.placeOrderButton}
+                    style={[
+                        styles.placeOrderButton,
+                        (loading || addresses.length === 0 || cartItems.length === 0) && styles.placeOrderButtonDisabled
+                    ]}
                     onPress={handlePlaceOrder}
-                    disabled={loading || addresses.length === 0}
+                    disabled={loading || addresses.length === 0 || cartItems.length === 0}
                 >
                     <Text style={styles.placeOrderButtonText}>
                         {loading ? 'Processing...' : 'Place Order'}
@@ -464,65 +542,37 @@ export default function CheckoutScreen({ navigation, route }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
-        paddingTop: 15,
-    },
-    header: {
-        paddingHorizontal: 16,
-        paddingTop: 20,
-        marginTop: 10,
-        paddingBottom: 8,
-    },
-    headerContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    titleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    backButton: {
-        marginRight: 16,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#f5f5f5',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontFamily: 'Montserrat_Bold',
+        backgroundColor: '#f8f9fa',
     },
     content: {
         flex: 1,
+        padding: 16,
     },
+    // Section Title Styles
     sectionTitleContainer: {
-        paddingHorizontal: 16,
-        marginTop: 24,
+        marginTop: 20,
         marginBottom: 12,
     },
     sectionTitle: {
         fontSize: 18,
-        fontFamily: 'Montserrat_Bold',
+        fontWeight: '600',
         color: '#333',
     },
+    // Address Styles
     addressContainer: {
-        paddingHorizontal: 16,
+        marginBottom: 16,
     },
     addressCard: {
-        backgroundColor: '#f9f9f9',
-        borderRadius: 12,
+        backgroundColor: '#fff',
+        borderRadius: 8,
         padding: 16,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#eee',
+        borderColor: '#e0e0e0',
     },
     addressCardSelected: {
-        borderColor: '#3498db',
-        backgroundColor: '#f0f7fd',
+        borderColor: '#5b7cfc',
+        borderWidth: 2,
     },
     addressHeader: {
         flexDirection: 'row',
@@ -532,10 +582,11 @@ const styles = StyleSheet.create({
     },
     addressName: {
         fontSize: 16,
-        fontFamily: 'Montserrat_Bold',
+        fontWeight: '600',
+        color: '#333',
     },
     defaultBadge: {
-        backgroundColor: '#3498db',
+        backgroundColor: '#5b7cfc',
         borderRadius: 4,
         paddingHorizontal: 8,
         paddingVertical: 2,
@@ -543,63 +594,54 @@ const styles = StyleSheet.create({
     defaultBadgeText: {
         color: '#fff',
         fontSize: 12,
-        fontFamily: 'Montserrat_SemiBold',
+        fontWeight: '500',
     },
     addressText: {
         fontSize: 14,
-        color: '#666',
-        marginBottom: 4,
-        fontFamily: 'Montserrat_Regular',
+        color: '#555',
+        marginBottom: 2,
     },
-    addressActions: {
-        flexDirection: 'row',
-        marginTop: 12,
-    },
-    addressAction: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginRight: 16,
-    },
-    addressActionText: {
-        marginLeft: 4,
-        color: '#666',
-        fontSize: 14,
-        fontFamily: 'Montserrat_Regular',
-    },
-    addAddressButton: {
-        flexDirection: 'row',
+    noAddressContainer: {
+        padding: 16,
+        backgroundColor: '#fff',
+        borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 12,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 12,
-        borderStyle: 'dashed',
         marginBottom: 16,
     },
-    addAddressText: {
-        marginLeft: 8,
-        color: '#3498db',
+    noAddressText: {
         fontSize: 16,
-        fontFamily: 'Montserrat_SemiBold',
+        color: '#777',
+        marginBottom: 10,
     },
-    paymentMethodContainer: {
+    addAddressButton: {
+        backgroundColor: '#5b7cfc',
         paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 4,
+    },
+    addAddressButtonText: {
+        color: '#fff',
+        fontWeight: '500',
+    },
+    // Payment Method Styles
+    paymentMethodContainer: {
+        marginBottom: 16,
     },
     paymentMethodCard: {
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 10,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#f9f9f9',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#eee',
+        borderColor: '#e0e0e0',
     },
     paymentMethodSelected: {
-        borderColor: '#3498db',
-        backgroundColor: '#f0f7fd',
+        borderColor: '#5b7cfc',
+        borderWidth: 2,
     },
     paymentMethodLeft: {
         flexDirection: 'row',
@@ -608,297 +650,177 @@ const styles = StyleSheet.create({
     paymentIcon: {
         width: 40,
         height: 40,
-        borderRadius: 20,
         backgroundColor: '#f0f0f0',
-        justifyContent: 'center',
+        borderRadius: 20,
         alignItems: 'center',
+        justifyContent: 'center',
         marginRight: 12,
     },
     paymentMethodTitle: {
         fontSize: 16,
-        fontFamily: 'Montserrat_SemiBold',
+        fontWeight: '500',
+        color: '#333',
     },
     paymentMethodDetails: {
         fontSize: 14,
-        color: '#666',
-        fontFamily: 'Montserrat_Regular',
+        color: '#777',
+        marginTop: 2,
     },
     radioButton: {
-        width: 20,
         height: 20,
+        width: 20,
         borderRadius: 10,
         borderWidth: 2,
-        borderColor: '#3498db',
-        justifyContent: 'center',
+        borderColor: '#5b7cfc',
         alignItems: 'center',
+        justifyContent: 'center',
     },
     radioButtonInner: {
-        width: 10,
         height: 10,
+        width: 10,
         borderRadius: 5,
-        backgroundColor: '#3498db',
+        backgroundColor: '#5b7cfc',
     },
-    addPaymentButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+    // Special Instructions Styles
+    specialInstructionsContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 8,
         padding: 12,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 12,
-        borderStyle: 'dashed',
         marginBottom: 16,
     },
-    addPaymentText: {
-        marginLeft: 8,
-        color: '#3498db',
-        fontSize: 16,
-        fontFamily: 'Montserrat_SemiBold',
-    },
-    specialInstructionsContainer: {
-        paddingHorizontal: 16,
-        marginBottom: 24,
-    },
     specialInstructionsInput: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 12,
-        padding: 12,
-        fontSize: 16,
-        height: 100,
+        height: 80,
         textAlignVertical: 'top',
-        fontFamily: 'Montserrat_Regular',
+        fontSize: 14,
+        color: '#333',
     },
+    // Order Summary Styles
     orderSummaryContainer: {
-        marginHorizontal: 16,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 12,
+        backgroundColor: '#fff',
+        borderRadius: 8,
         padding: 16,
-        marginBottom: 80,
+        marginBottom: 16,
     },
     orderSummaryTitle: {
         fontSize: 18,
-        fontFamily: 'Montserrat_Bold',
+        fontWeight: '600',
+        color: '#333',
         marginBottom: 16,
     },
     orderItem: {
         flexDirection: 'row',
-        marginBottom: 16,
+        marginBottom: 12,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
     },
     orderItemImage: {
-        width: 70,
-        height: 70,
-        borderRadius: 8,
+        width: 60,
+        height: 60,
+        borderRadius: 4,
         marginRight: 12,
     },
     orderItemDetails: {
         flex: 1,
-        justifyContent: 'space-between',
     },
     orderItemName: {
         fontSize: 16,
-        fontFamily: 'Montserrat_SemiBold',
+        fontWeight: '500',
+        color: '#333',
+        marginBottom: 2,
     },
     orderItemVariant: {
         fontSize: 14,
-        color: '#666',
-        fontFamily: 'Montserrat_Regular',
+        color: '#777',
+        marginBottom: 4,
     },
     orderItemPriceRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
     },
     orderItemPrice: {
-        fontSize: 16,
-        fontFamily: 'Montserrat_Bold',
-        color: '#e74c3c',
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#333',
     },
     orderItemQuantity: {
         fontSize: 14,
-        color: '#666',
-        fontFamily: 'Montserrat_Regular',
+        color: '#777',
     },
     summaryDivider: {
         height: 1,
-        backgroundColor: '#eee',
-        marginVertical: 16,
+        backgroundColor: '#e0e0e0',
+        marginVertical: 12,
     },
     summaryRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingVertical: 8,
+        marginBottom: 8,
     },
     summaryLabel: {
-        fontSize: 16,
-        color: '#666',
-        fontFamily: 'Montserrat_Regular',
+        fontSize: 14,
+        color: '#777',
     },
     summaryValue: {
-        fontSize: 16,
-        fontFamily: 'Montserrat_SemiBold',
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#333',
     },
     discountValue: {
-        color: '#27ae60',
+        color: '#4caf50',
     },
     totalRow: {
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
         marginTop: 8,
-        paddingTop: 12,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#e0e0e0',
     },
     totalLabel: {
-        fontSize: 18,
-        fontFamily: 'Montserrat_Bold',
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
     },
     totalValue: {
-        fontSize: 20,
-        fontFamily: 'Montserrat_Bold',
-        color: '#e74c3c',
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#333',
     },
+    // Footer
+    footer: {
+        height: 80,
+    },
+    // Place Order Button
     placeOrderContainer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        padding: 16,
         backgroundColor: '#fff',
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: 24,
         borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
+        borderTopColor: '#e0e0e0',
     },
     placeOrderButton: {
-        backgroundColor: '#000',
-        borderRadius: 12,
-        paddingVertical: 16,
+        backgroundColor: '#5b7cfc',
+        borderRadius: 8,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        padding: 16,
+    },
+    placeOrderButtonDisabled: {
+        backgroundColor: '#b6c2f5',
     },
     placeOrderButtonText: {
         color: '#fff',
-        fontSize: 18,
-        fontFamily: 'Montserrat_Bold',
+        fontSize: 16,
+        fontWeight: '600',
     },
     orderTotalContainer: {
         backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: 4,
         paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
+        paddingVertical: 4,
     },
     orderTotalText: {
         color: '#fff',
         fontSize: 16,
-        fontFamily: 'Montserrat_Bold',
-    },
-    footer: {
-        height: 20,
-    },
-    // Modal Styles
-    modalContainer: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
-    },
-    modalContent: {
-        backgroundColor: '#fff',
-        margin: 20,
-        borderRadius: 12,
-        maxHeight: '80%',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#e1e1e1',
-    },
-    modalTitle: {
-        fontSize: 18,
         fontWeight: '600',
-        color: '#333',
-    },
-    closeButton: {
-        padding: 5,
-    },
-    modalForm: {
-        padding: 16,
-        maxHeight: '60%',
-    },
-    inputLabel: {
-        fontSize: 14,
-        color: '#555',
-        marginBottom: 4,
-        marginTop: 10,
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 6,
-        padding: 10,
-        fontSize: 16,
-        backgroundColor: '#f9f9f9',
-    },
-    defaultCheckbox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 20,
-        marginBottom: 10,
-    },
-    checkbox: {
-        width: 22,
-        height: 22,
-        borderWidth: 1,
-        borderColor: '#3498db',
-        borderRadius: 4,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 10,
-    },
-    checkboxLabel: {
-        fontSize: 16,
-        color: '#333',
-    },
-    modalFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        padding: 16,
-        borderTopWidth: 1,
-        borderTopColor: '#e1e1e1',
-    },
-    cancelButton: {
-        flex: 1,
-        padding: 12,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        marginRight: 8,
-        alignItems: 'center',
-    },
-    cancelButtonText: {
-        color: '#666',
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    saveButton: {
-        flex: 1,
-        padding: 12,
-        borderRadius: 6,
-        backgroundColor: '#3498db',
-        marginLeft: 8,
-        alignItems: 'center',
-    },
-    saveButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '500',
     },
 });
