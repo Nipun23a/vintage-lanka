@@ -40,7 +40,7 @@ const HeroBanner = () => {
     return(
         <View style={styles.heroBanner}>
             <Text style={styles.bannerText}>
-                Vintage Lanka - Discover, Buy & Sell Pre-Loved Treasures!
+                Thriftify - Discover, Buy & Sell Pre-Loved Treasures!
             </Text>
         </View>
     );
